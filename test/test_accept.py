@@ -36,8 +36,8 @@ class AcceptServer(network.Handler):
 
 def test_accept():
     n = network.Network()
-    n.add_server(PORT, network.Handler)
-    c = n.add_connection('localhost', PORT, AcceptServer)
+    n.add_server(PORT, AcceptServer)
+    c = n.add_connection('localhost', PORT, network.Handler)
     while c.is_open:
         n.service()
     n.close()
