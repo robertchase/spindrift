@@ -31,7 +31,7 @@ class Handler(object):
         self.tx_count = 0
 
         self.t_init = time.perf_counter()
-        self.t_connect = 0
+        self.t_open = 0
         self.t_ready = 0
         self.t_close = 0
 
@@ -109,6 +109,10 @@ class Handler(object):
         log.debug(message)  # unusual but not fatal
 
     @property
+    def is_open(self):
+        return not self.is_closed
+
+    @property
     def peer_address(self):
         try:
             return self._sock.getpeername()
@@ -171,7 +175,7 @@ class Handler(object):
             we either start waiting for data to arrive (EVENT_READ) or prepare the
             socket for SSL handshake and go through all that.
         '''
-        self.t_connect = time.perf_counter()
+        self.t_open = time.perf_counter()
         self.on_open()
         self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # bye bye NAGLE
         if self._ssl_ctx:
@@ -275,6 +279,10 @@ class Listener(object):
         self.context = context
         self.ssl_ctx = ssl_ctx
 
+    def close(self):
+        self.network.unregister(self.socket)
+        self.socket.close()
+
     def _do_accept(self):
         s, address = self.socket.accept()
         s.setblocking(False)
@@ -306,9 +314,9 @@ class Network(object):
             ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
             if ssl_certfile:
                 ssl_ctx.load_cert_chain(ssl_certfile, ssl_keyfile, ssl_password)
-        h = Listener(s, self, context=context, handler=handler, ssl_ctx=ssl_ctx if is_ssl else None)
-        self.register(s, selectors.EVENT_READ, h._do_accept)
-        return h
+        l = Listener(s, self, context=context, handler=handler, ssl_ctx=ssl_ctx if is_ssl else None)
+        self.register(s, selectors.EVENT_READ, l._do_accept)
+        return l
 
     def add_connection(self, host, port, handler, context=None, is_ssl=False):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -334,6 +342,14 @@ class Network(object):
             h._on_connect(self)
         return h
 
+    def close(self):
+        for k in self._selector.get_map().values():
+            try:
+                s = k.fileobj
+                s.close()
+            except Exception:
+                pass
+
     def register(self, sock, event, data):
         self._selector.register(sock, event, data)
 
@@ -353,7 +369,7 @@ class Network(object):
             recv'd data.  it'll get another chance to process at the end of the _service
             loop.
 
-            see Handler._on_readable.
+            see Handler._do_read.
         '''
         self._pending.append(callback)
 
@@ -378,44 +394,12 @@ class Network(object):
         return processed
 
     def service(self, timeout=.1, max_iterations=100):
+        processed = False
         while True:
             if not self._service(timeout):
-                return
+                return processed
+            processed = True
             max_iterations -= 1
             if max_iterations == 0:
                 return
             timeout = 0
-
-
-class MyHandler(Handler):
-
-    def on_fail(self, message):
-        log.debug('cid=%s, connection failure: %s', self.id, message)
-
-    def on_failed_handshake(self, reason):
-        log.debug('cid=%s, failed handshake: %s', self.id, reason)
-
-    def on_handshake(self, cert):
-        log.debug('cid=%s, cert=%s', self.id, cert)
-        return True
-
-    def on_ready(self):
-        data = b'GET index.html HTTP/1.1\n\rContent-Length:0\n\r\n\r'
-        self.send(data)
-        log.debug('cid=%s, connected!', self.id)
-
-    def on_data(self, data):
-        log.debug('cid=%s, data=%s', self.id, data)
-
-    def on_close(self, reason):
-        log.debug('cid=%s, close: %s', self.id, reason)
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-
-    n = Network()
-    n.add_connection('dummy', 12345, MyHandler)
-    # n.add_connection('www.google.com', 443, MyHandler, is_ssl=True)
-    while True:
-        n.service(.1)

@@ -6,22 +6,36 @@ import spindrift.network as network
 
     to start the echo server run:
 
-        python example/echo.py
+        python3.6 -m example.echo
 
     you can then connect to it with telnet on port
-    12345 and see your input echoed back. the python
-    executable must be 3.6+.
+    12345 and see your input echoed back.
+
+    Notes:
+
+        1. the on_open method is called when a connection is made
+           to the server
+
+        2. the id attribute contains a unique id for connection
+           to the server. each add_server call to Network
+           generates id values independently. in other words,
+           handler ids are only unique within a server.
+
+        3. the on_close method is called when the connection is
+           closed
+
+        4. the on_data method is called with the data most recently
+           received on the connection
 '''
 
 
 class Echo(network.Handler):
-    ''' an Echo object is created for each new connection  '''
 
     def on_open(self):
         print('open cid=%s' % self.id)
 
     def on_data(self, data):
-        print('echoing: %s' % data.decode('utf8'))
+        print('echo cid=%s: %s' % (self.id, data.decode('utf8').strip()))
         self.send(data)
 
     def on_close(self, reason):
@@ -29,7 +43,7 @@ class Echo(network.Handler):
 
 
 n = network.Network()
-n.add_server(12345, Echo)
+n.add_server(12345, Echo)  # an Echo object is created for each connection
 print('echo server started on 12345')
 while True:  # runs forever: CTRL-C to exit
     n.service()
