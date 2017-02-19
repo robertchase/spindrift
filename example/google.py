@@ -16,12 +16,6 @@ import spindrift.network as network
 
 class Google(network.Handler):
 
-    def on_init(self):
-        print('init cid=%s' % self.id)
-
-    def on_open(self):
-        print('open cid=%s' % self.id)
-
     def on_ready(self):
         self.send(b'GET / HTTP/1.1\r\n\r\n')
 
@@ -29,9 +23,6 @@ class Google(network.Handler):
         print('new chunk of data:')
         print(data)
         print()
-
-    def on_close(self, reason):
-        print('close cid=%s: %s' % (self.id, reason))
 
 
 n = network.Network()

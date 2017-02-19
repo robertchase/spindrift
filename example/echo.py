@@ -6,7 +6,7 @@ import spindrift.network as network
 
     to start the echo server run:
 
-        python3.6 -m example.echo
+        python -m example.echo
 
     you can then connect to it with telnet on port
     12345 and see your input echoed back.
@@ -32,14 +32,14 @@ import spindrift.network as network
 class Echo(network.Handler):
 
     def on_open(self):
-        print('open cid=%s' % self.id)
+        print('open cid=', self.id)
 
     def on_data(self, data):
-        print('echo cid=%s: %s' % (self.id, data.decode('utf8').strip()))
+        print('echo cid=', self.id, ':', data.decode('utf8').strip())
         self.send(data)
 
     def on_close(self, reason):
-        print('close cid=%s: %s' % (self.id, reason))
+        print('close cid=', self.id, ':', reason)
 
 
 n = network.Network()

@@ -405,8 +405,8 @@ if __name__ == '__main__':
             now = time.perf_counter()
             print('stats cid={} c={:.4f}, r={:.4f}, d={:.4f}, e={:.4f}'.format(
                 self.id,
-                self.t_connect - self.t_init,
-                self.t_ready - self.t_connect,
+                self.t_open - self.t_init,
+                self.t_ready - self.t_open,
                 now - self.t_ready,
                 now - self.t_init,
             ))
@@ -418,5 +418,5 @@ if __name__ == '__main__':
     n = Network()
     # hand = n.add_connection('dummy', 12345, MyHandler)
     hand = n.add_connection('dummy', 12346, MyHandler, is_ssl=True)
-    while not hand.is_closed:
+    while hand.is_open:
         n.service(.1)
