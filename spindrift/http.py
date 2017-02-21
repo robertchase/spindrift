@@ -1,4 +1,4 @@
-from network import Handler
+from spindrift.network import Handler
 
 from io import StringIO
 import time
@@ -40,7 +40,7 @@ class HTTPHandler(Handler):
                 on_http_data(self) - when data is available
                 on_http_error(self, message)
         '''
-        self._data = b''
+        self._data = bytearray()
         self._setup()
 
         self.http_max_content_length = None
@@ -51,7 +51,7 @@ class HTTPHandler(Handler):
 
     @property
     def charset(self):
-        h = self.http_headers.get('Content-Type')
+        h = self.http_headers.get('content-type')
         if h:
             charset = [c.split('=')[1].strip() for c in h.split(';') if 'charset' in c]
             if len(charset):
@@ -73,7 +73,7 @@ class HTTPHandler(Handler):
     def _multipart(self):
         cache = self._data
         try:
-            self.http_headers['Content-Type'], boundary = self.http_headers['Content-Type'].split('; boundary=')
+            self.http_headers['content-type'], boundary = self.http_headers['content-type'].split('; boundary=')
             for self._data in [p[2:] for p in self.http_content.split('--' + boundary)][1:-1]:  # split, remove \r\n and ignore first & last; stuff into _data for _line
                 headers = dict(l.split(': ', 1) for l in iter(self._line, ''))
                 if 'Content-Disposition' in headers:
@@ -81,23 +81,25 @@ class HTTPHandler(Handler):
                     disposition = dict(part.split('=', 1) for part in rem.split('; '))
                 self.http_multipart.append(HTTPPart(headers, disposition, self._data))
         except Exception:
-            self.__error('Malformed multipart message')
+            self._on_http_error('Malformed multipart message')
         self._data = cache
 
     def _on_http_data(self):
-        if self.http_headers.get('Content-Encoding') == 'gzip':
+        if self.http_headers.get('content-encoding') == 'gzip':
             self.http_content = gzip.GzipFile(fileobj=StringIO(self.http_content)).read()
-        if self.http_headers.get('Content-Type', '').startswith('multipart'):
+        if self.http_headers.get('content-type', '').startswith('multipart'):
             self._multipart()
+            if self.is_closed:
+                return
         if self.charset:
             self.http_content = self.http_content.decode(self.charset)
         self.on_http_data()
 
     def on_send_complete(self):
-        if self.__http_close_on_complete:
+        if self._http_close_on_complete:
             self.close()
 
-    def __send(self, headers, content):
+    def _send(self, headers, content):
         self.on_http_send(headers, content)
         data = headers + content if content else headers
         data = data.encode('utf-8')
@@ -130,11 +132,11 @@ class HTTPHandler(Handler):
             method, resource, '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()])
         )
 
-        self.__send(headers, content)
+        self._send(headers, content)
 
     def send_server(self, content='', code=200, message='OK', headers=None, close=False):
 
-        self.__http_close_on_complete = True if close else self.http_headers.get('Connection') == 'close'
+        self._http_close_on_complete = True if close else self.http_headers.get('connection') == 'close'
 
         if headers is None:
             headers = {}
@@ -150,11 +152,11 @@ class HTTPHandler(Handler):
             code, message,
             '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()]))
 
-        self.__send(headers, content)
+        self._send(headers, content)
 
     def _setup(self):
         self.http_headers = {}
-        self.http_content = ''
+        self.http_content = bytearray()
         self.http_status_code = None
         self.http_status_message = None
         self.http_method = None
@@ -162,7 +164,7 @@ class HTTPHandler(Handler):
         self.http_resource = None
         self.http_query_string = None
         self.http_query = {}
-        self.__state = self.__status
+        self._state = self._status
 
     def on_http_headers(self):
         ''' a chance to terminate connection if headers don't check out
@@ -173,19 +175,13 @@ class HTTPHandler(Handler):
         return 0, None
 
     def on_data(self, data):
-        self._data += data
-        while self.__state():
+        self._data.extend(data)
+        while self._state():
             pass
 
     def _on_http_error(self, message):
         self.on_http_error(message)
         self.close('http error')
-        return False
-
-    def __error(self, message):
-        self.error = message
-        self.on_http_error()
-        self.close()
         return False
 
     def _line(self):
@@ -202,7 +198,7 @@ class HTTPHandler(Handler):
                 return self._on_http_error('too much data without a line termination (b)')
         return line.decode('utf-8')
 
-    def __status(self):
+    def _status(self):
         line = self._line()
         if line is False or line is None:
             return False
@@ -238,10 +234,10 @@ class HTTPHandler(Handler):
             if not self.on_http_status(self.http_method, self.http_resource):
                 return False
 
-        self.__state = self.__header
+        self._state = self._header
         return True
 
-    def __header(self):
+    def _header(self):
         line = self._line()
         if line is None:
             return False
@@ -263,92 +259,92 @@ class HTTPHandler(Handler):
     def _end_header(self):
 
         if getattr(self, '_http_method', None) == 'HEAD':  # this gets set if the send method is called
-            self.__length = 0
-            self.__state = self.__content
+            self._length = 0
+            self._state = self._content
 
         elif 'transfer-encoding' in self.http_headers:
             if self.http_headers['transfer-encoding'] != 'chunked':
                 return self._on_http_error('Unsupported Transfer-Encoding value')
-            self.__state = self.__chunked_length
+            self._state = self._chunked_length
 
         else:
             if 'content-length' in self.http_headers:
                 try:
-                    self.__length = int(self.http_headers['content-length'])
+                    self._length = int(self.http_headers['content-length'])
                 except ValueError:
                     return self._on_http_error('Invalid content length')
                 if self.http_max_content_length:
-                    if self.__length > self.http_max_content_length:
+                    if self._length > self.http_max_content_length:
                         self.send_server(code=413, message='Request Entity Too Large')
                         return self._on_http_error('Content-Length exceeds maximum length')
-                self.__state = self.__content
+                self._state = self._content
             else:
-                if self.http_method:  # this means we are a server (sneaky code)
-                    self.__length = 0
-                    self.__content()
+                if self.is_inbound:  # server can't wait for close (might need to respond)
+                    self._length = 0
+                    self._content()
                 else:
-                    self._on_close = self.__on_identity_close
-                    self.__state = self.__identity
+                    self._on_close = self._on_end_at_close
+                    self._state = self._nop
 
         rc, result = self.on_http_headers()
         if rc != 0:
-            return self.__error(result)
+            return self._on_http_error(result)
 
         return True
 
-    def __identity(self):
+    def _nop(self):
         return False
 
-    def __on_identity_close(self):
+    def _on_end_at_close(self):
         self.http_content = self._data
         self._on_http_data()
 
-    def __content(self):
-        if len(self._data) >= self.__length:
-            self.http_content = self._data[:self.__length]
+    def _content(self):
+        if len(self._data) >= self._length:
+            self.http_content = self._data[:self._length]
             self._on_http_data()
-            self._data = self._data[self.__length:]
+            self._data = self._data[self._length:]
             self._setup()
             return True
         return False
 
-    def __chunked_length(self):
+    def _chunked_length(self):
         line = self._line()
         if line is None:
             return False
         line = line.split(';', 1)[0]
         try:
-            self.__length = int(line, 16)
+            self._length = int(line, 16)
         except ValueError:
-            return self.__error('Invalid transfer-encoding chunk length: %s' % line)
-        if self.__length == 0:
-            self.__state = self.__footer
+            return self._on_http_error('Invalid transfer-encoding chunk length: %s' % line)
+        if self._length == 0:
+            self._state = self._footer
             return True
         if self.http_max_content_length:
-            if (len(self._data) + self.__length) > self.http_max_content_length:
+            if (len(self._data) + self._length) > self.http_max_content_length:
                 self.send_server(code=413, message='Request Entity Too Large')
-                return self.__error('Content-Length exceeds maximum length')
-        self.__state = self.__chunked_content
+                return self._on_http_error('Content-Length exceeds maximum length')
+        self._state = self._chunked_content
         return True
 
-    def __chunked_content(self):
-        if len(self._data) >= self.__length:
-            self.http_content += self._data[:self.__length]
-            self._data = self._data[self.__length:]
-            self.__state = self.__chunked_content_end
+    def _chunked_content(self):
+        if len(self._data) >= self._length:
+            self.http_content.extend(self._data[:self._length])
+            self._data = self._data[self._length:]
+            self._state = self._chunked_content_end
             return True
         return False
 
-    def __chunked_content_end(self):
+    def _chunked_content_end(self):
         line = self._line()
         if line is None:
             return False
         if line == '':
-            self.__state = self.__chunked_length
+            self._state = self._chunked_length
             return True
-        return self.__error('Extra data at end of chunk')
+        return self._on_http_error('Extra data at end of chunk')
 
-    def __footer(self):
+    def _footer(self):
         line = self._line()
         if line is None:
             return False
@@ -360,9 +356,9 @@ class HTTPHandler(Handler):
 
         test = line.split(':', 1)
         if len(test) != 2:
-            return self.__error('Invalid footer: missing colon')
+            return self._on_http_error('Invalid footer: missing colon')
         if len(self.http_headers) == self.http_max_header_count:
-            return self.__error('Too many header records defined')
+            return self._on_http_error('Too many header records defined')
         name, value = test
         self.http_headers[name.strip()] = value.strip()
         return True
@@ -380,43 +376,3 @@ class HTTPPart(object):
         self.headers = headers
         self.disposition = disposition
         self.content = content
-
-
-if __name__ == '__main__':
-    from network import Network
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    class MyHandler(HTTPHandler):
-
-        def on_open(self):
-            print('open cid=%s' % self.id)
-
-        def on_ready(self):
-            self.send(resource='/dummy/ping')
-
-        def on_http_error(self, message):
-            print('on_http_error cid=%s: %s' % (self.id, message))
-
-        def on_http_data(self):
-            print('on_http_data cid=%s: headers=%s' % (self.id, self.http_headers))
-            print('on_http_data cid=%s: content=%s' % (self.id, self.http_content))
-
-            now = time.perf_counter()
-            print('stats cid={} c={:.4f}, r={:.4f}, d={:.4f}, e={:.4f}'.format(
-                self.id,
-                self.t_open - self.t_init,
-                self.t_ready - self.t_open,
-                now - self.t_ready,
-                now - self.t_init,
-            ))
-            self.close('done')
-
-        def on_close(self, reason):
-            print('close cid=%s: %s' % (self.id, reason))
-
-    n = Network()
-    # hand = n.add_connection('dummy', 12345, MyHandler)
-    hand = n.add_connection('dummy', 12346, MyHandler, is_ssl=True)
-    while hand.is_open:
-        n.service(.1)
