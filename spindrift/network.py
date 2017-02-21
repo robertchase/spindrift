@@ -77,6 +77,19 @@ class Handler(object):
         else:
             self._do_write(data)
 
+    def on_send_complete(self):
+        ''' called when all data has been sent on the socket
+
+            sometimes socket.send is not able to send all of the data, in which
+            case it is buffered in the library to be sent later. this method is
+            called when socket.send has been called and all data is sent. tcp may
+            still be holding the data in its own buffers, but that's not our
+            concern.
+
+            this is useful if you want to send some data, and then close.
+        '''
+        pass
+
     def quiesce(self):
         ''' stop receiving data '''
         self._is_quiesced = True
@@ -262,6 +275,7 @@ class Handler(object):
             if l == len(data):
                 self._sending = b''
                 self._register(selectors.EVENT_READ, self._do_read)
+                self.on_send_complete()
             else:
                 '''
                     we couldn't send all the data. buffer the remainder in self._sending and start
