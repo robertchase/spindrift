@@ -35,7 +35,7 @@ class HTTPHandler(Handler):
                         if charset:
                             http_content: decoded http_content
 
-                on_http_status(self, method, resource):bool - (server) when status line is available, return False to stop processing
+                on_http_status(self, method, resource):bool - (server) when status line is available
                 on_http_send(self, headers, content) - useful for debugging
                 on_http_data(self) - when data is available
                 on_http_error(self, message)
@@ -62,7 +62,7 @@ class HTTPHandler(Handler):
         pass
 
     def on_http_status(self, method, resource):
-        return True
+        pass
 
     def on_http_data(self):
         pass
@@ -72,25 +72,26 @@ class HTTPHandler(Handler):
 
     def _multipart(self):
         cache = self._data
-        try:
-            self.http_headers['content-type'], boundary = self.http_headers['content-type'].split('; boundary=')
-            for self._data in [p[2:] for p in self.http_content.split('--' + boundary)][1:-1]:  # split, remove \r\n and ignore first & last; stuff into _data for _line
-                headers = dict(l.split(': ', 1) for l in iter(self._line, ''))
-                if 'Content-Disposition' in headers:
-                    headers['Content-Disposition'], rem = headers['Content-Disposition'].split('; ', 1)
-                    disposition = dict(part.split('=', 1) for part in rem.split('; '))
-                self.http_multipart.append(HTTPPart(headers, disposition, self._data))
-        except Exception:
-            self._on_http_error('Malformed multipart message')
+        self.http_headers['content-type'], boundary = self.http_headers['content-type'].split('; boundary=')
+        for self._data in [p[2:] for p in self.http_content.split('--' + boundary)][1:-1]:  # split, remove \r\n and ignore first & last; stuff into _data for _line
+            headers = dict(l.split(': ', 1) for l in iter(self._line, ''))
+            if 'Content-Disposition' in headers:
+                headers['Content-Disposition'], rem = headers['Content-Disposition'].split('; ', 1)
+                disposition = dict(part.split('=', 1) for part in rem.split('; '))
+            self.http_multipart.append(HTTPPart(headers, disposition, self._data))
         self._data = cache
 
     def _on_http_data(self):
         if self.http_headers.get('content-encoding') == 'gzip':
-            self.http_content = gzip.GzipFile(fileobj=StringIO(self.http_content)).read()
+            try:
+                self.http_content = gzip.GzipFile(fileobj=StringIO(self.http_content)).read()
+            except Exception:
+                return self._on_http_error('Malformed gzip data')
         if self.http_headers.get('content-type', '').startswith('multipart'):
-            self._multipart()
-            if self.is_closed:
-                return
+            try:
+                self._multipart()
+            except Exception:
+                return self._on_http_error('Malformed multipart message')
         if self.charset:
             self.http_content = self.http_content.decode(self.charset)
         self.on_http_data()
@@ -126,7 +127,8 @@ class HTTPHandler(Handler):
             headers['Accept-Encoding'] = 'gzip'
 
         if 'host' not in (k.lower() for k in headers):
-            headers['Host'] = host if host else '%s:%s' % self.peer_address
+            host = host if host else self.host if self.host else '%s:%s' % self.peer_address
+            headers['Host'] = host
 
         headers = '%s %s HTTP/1.1\r\n%s\r\n\r\n' % (
             method, resource, '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()])
@@ -136,7 +138,9 @@ class HTTPHandler(Handler):
 
     def send_server(self, content='', code=200, message='OK', headers=None, close=False):
 
-        self._http_close_on_complete = True if close else self.http_headers.get('connection') == 'close'
+        if close or self.http_headers.get('connection') == 'close':
+            self.quiesce()  # no reason to continue receiving data
+            self._http_close_on_complete = True
 
         if headers is None:
             headers = {}
@@ -167,16 +171,12 @@ class HTTPHandler(Handler):
         self._state = self._status
 
     def on_http_headers(self):
-        ''' a chance to terminate connection if headers don't check out
-
-            to indicate a problem:
-                return 1, 'error message'
-        '''
-        return 0, None
+        ''' a chance to terminate connection if headers don't check out '''
+        pass
 
     def on_data(self, data):
         self._data.extend(data)
-        while self._state():
+        while self._state() and self.is_open:
             pass
 
     def _on_http_error(self, message):
@@ -230,9 +230,8 @@ class HTTPHandler(Handler):
                 for n, v in urlparse.parse_qsl(res.query):
                     self.http_query[n] = v
 
-        if not self.is_outbound:
-            if not self.on_http_status(self.http_method, self.http_resource):
-                return False
+        if self.is_inbound:
+            self.on_http_status(self.http_method, self.http_resource)
 
         self._state = self._header
         return True
@@ -286,11 +285,9 @@ class HTTPHandler(Handler):
                     self._on_close = self._on_end_at_close
                     self._state = self._nop
 
-        rc, result = self.on_http_headers()
-        if rc != 0:
-            return self._on_http_error(result)
+        self.on_http_headers()
 
-        return True
+        return self.is_open
 
     def _nop(self):
         return False
