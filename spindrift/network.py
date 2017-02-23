@@ -193,7 +193,7 @@ class Handler(object):
         '''
             TCP handshake complete (inbound and outbound)
 
-            we either start waiting for data to arrive (EVENT_READ) or prepare the
+            we either start waiting for data to arrive (on_ready) or prepare the
             socket for SSL handshake and go through all that.
         '''
         self.t_open = time.perf_counter()
@@ -201,13 +201,12 @@ class Handler(object):
         self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # bye bye NAGLE
         if self._ssl_ctx:
             try:
-                self._sock = self._ssl_ctx.wrap_socket(self._sock, server_side=self.is_outbound is False, do_handshake_on_connect=False)
+                self._sock = self._ssl_ctx.wrap_socket(self._sock, server_side=self.is_inbound, do_handshake_on_connect=False)
             except Exception as e:
                 self.close(str(e))
             else:
                 self._do_handshake()
         else:
-            self._register(selectors.EVENT_READ, self._do_read)
             self._on_ready()
 
     def _do_handshake(self):
