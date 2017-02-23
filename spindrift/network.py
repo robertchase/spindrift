@@ -93,15 +93,17 @@ class Handler(object):
 
     def quiesce(self):
         ''' stop receiving data '''
-        self._is_quiesced = True
-        if self._mask == selectors.EVENT_READ:
-            self._unregister()
+        if not self._is_quiesced:
+            self._is_quiesced = True
+            if self._mask == selectors.EVENT_READ:
+                self._unregister()
 
     def unquiesce(self):
         ''' start receiving data again '''
-        self._is_quiesced = False
-        if self._mask == 0:
-            self._register(selectors.EVENT_READ, self._do_read)
+        if self._is_quiesced:
+            self._is_quiesced = False
+            if self._mask == 0:
+                self._register(selectors.EVENT_READ, self._do_read)
 
     def close(self, reason=None):
         if self.is_closed:
