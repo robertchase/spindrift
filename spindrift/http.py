@@ -139,7 +139,6 @@ class HTTPHandler(Handler):
     def send_server(self, content='', code=200, message='OK', headers=None, close=False):
 
         if close or self.http_headers.get('connection') == 'close':
-            self.quiesce()  # no reason to continue receiving data
             self._http_close_on_complete = True
 
         if headers is None:
