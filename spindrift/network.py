@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 class Handler(object):
 
-    def __init__(self, sock, network, context=None, is_outbound=False, ssl_ctx=None):
+    def __init__(self, sock, network, context=None, is_outbound=False, host=None, ssl_ctx=None):
         self._sock = sock
         self._network = network
         self._ssl_ctx = ssl_ctx
@@ -24,6 +24,7 @@ class Handler(object):
         self.id = network._next_id
         self.context = context
         self.is_outbound = is_outbound
+        self.host = host
         self.is_closed = False
         self.recv_len = 1024
 
@@ -121,6 +122,10 @@ class Handler(object):
     @property
     def is_open(self):
         return not self.is_closed
+
+    @property
+    def is_inbound(self):
+        return not self.is_outbound
 
     @property
     def peer_address(self):
@@ -381,7 +386,7 @@ class Network(object):
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False
             ssl_ctx.verify_mode = ssl.CERT_NONE
-        h = handler(s, self, context=context, is_outbound=True, ssl_ctx=ssl_ctx if is_ssl else None)
+        h = handler(s, self, context=context, is_outbound=True, host=host, ssl_ctx=ssl_ctx if is_ssl else None)
         try:
             s.connect((host, port))
         except OSError as e:
