@@ -10,6 +10,67 @@ log = logging.getLogger(__name__)
 
 
 class Handler(object):
+    ''' Handle events on a network connection
+
+        This object is instantiated by the Network for each new inbound or outbound connection.
+        Each on_* method is called when the connection reaches certain states, or when data
+        arrives or is sent from the connection. The most commonly used methods are on_ready,
+        which is called when the connection is ready for use, and on_data when the latest
+        chunk of data has arrived.
+
+        Create custom behavior by subclassing Handler and providing logic in the appropriate
+        on_* methods. The following methods are available:
+
+            on_init - called at object setup
+            on_accept - called for inbound server connections
+                        return False to reject the connection (default True)
+            on_failed_handshake - called for ssl handshake failures
+            on_fail - called for outbound connection failures
+            on_handshake(self, cert) - called after ssl handshake
+                                       return False to reject (default True)
+            on_open - called after tcp connection (before any ssl negotiation)
+            on_ready - called when connection is ready to use
+            on_data(self, data) - called when data arrives
+            on_close(self, reason) - called on connection close
+            on_send_complete - called when send is complete, including libray buffered data
+                               this does not include TCP buffering
+
+        These on_* methods are not fatal, and rather uncommon. The default action is to
+        log.debug the message:
+
+            on_recv_error(self, message) - on socket recv ENOENT
+            on_send_error(self, message) - on socket send EINTR or EWOULDBLOCK
+
+        These methods allow actions on the connection:
+
+            send(data) - send data to connection peer
+            close(reason) - close the connection
+            quiesce - stop receiving data on the connection
+            unquiesce - start receiving data on the connection again
+
+        This attribute allows the socket recv length to be changed. The default value
+        is usually fine:
+
+            recv_len - read length passed to a socket recv (default 1024)
+
+        The following attributes/properties are available:
+
+            id - unique id assigned by a Network
+            context - context object supplied to add_connection or add_server
+            is_outbound - True if outbound (Client) connection
+            is_inbound - True if inbound (Server) connection
+            peer_address - address of peer
+            host - host supplied to add_connection
+            is_open - True if connection is open (not yet closed)
+            is_closed - True if connection is closed
+            rx_count - number of bytes read (after handshake)
+            tx_count - number of bytes sent (after handshake)
+            t_init - time of connection init
+            t_open - time when TCP connection is established
+            t_ready - time when SSL handshake, is complete
+                      if connection is not SSL, then time will be very close to t_open
+            t_close - time when connection is closed
+    '''
 
     def __init__(self, sock, network, context=None, is_outbound=False, host=None, ssl_ctx=None):
         self._sock = sock
@@ -36,6 +97,7 @@ class Handler(object):
         self.t_ready = 0
         self.t_close = 0
 
+        self._on_init()  # for libraries
         self.on_init()
 
     def on_init(self):
@@ -135,6 +197,9 @@ class Handler(object):
             return self._sock.getpeername()
         except socket.error:
             return ('Closing', 0)
+
+    def _on_init(self):
+        pass
 
     @property
     def _is_sending(self):
@@ -330,7 +395,7 @@ class Network(object):
 
             Required Arguments:
                 port - listening port
-                handler - Handler subclass assigned to each incoming connection
+                handler - Handler class/subclass assigned to each incoming connection
 
             Optional Arguments:
                 context - arbitrary context assigned to each incoming connection
@@ -381,6 +446,18 @@ class Network(object):
         return l
 
     def add_connection(self, host, port, handler, context=None, is_ssl=False):
+        ''' Add a Client (outbound) socket
+
+        Required Arguments:
+            host - name or ip address of server
+            port - server port to connect to
+            handler Handler class/subclass assigned to the connection
+
+        Optional Arguments:
+            context - arbitrary context assigned to the connection
+            is_ssl - if True, connection will be ssl
+        '''
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setblocking(False)
         if is_ssl:
