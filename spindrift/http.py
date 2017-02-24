@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 class HTTPHandler(Handler):
 
-    def on_init(self):
+    def _on_init(self):
         '''
             Handler for an HTTP connection.
 
