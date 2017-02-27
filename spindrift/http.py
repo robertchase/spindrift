@@ -2,7 +2,7 @@ from spindrift.network import Handler
 
 from io import StringIO
 import time
-from urllib.parse import urlparse
+import urllib.parse as urlparse
 import gzip
 
 import logging
@@ -35,7 +35,7 @@ class HTTPHandler(Handler):
                         if charset:
                             http_content: decoded http_content
 
-                on_http_status(self, method, resource):bool - (server) when status line is available
+                on_http_status(self, method, resource) - (server) when status line is available
                 on_http_send(self, headers, content) - useful for debugging
                 on_http_data(self) - when data is available
                 on_http_error(self, message)
