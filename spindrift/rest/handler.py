@@ -1,56 +1,11 @@
 import json
 import sys
-import types
-import urllib.parse as urlparse
 
 import spindrift.http as http
+import spindrift.rest.request as rest_request
 
 import logging
 log = logging.getLogger(__name__)
-
-
-class RESTRequest(object):
-
-    def __init__(self, handler):
-        self.handler = handler
-        self.is_delayed = False
-
-    def __getattr__(self, name):
-        if name in ('http_headers', 'http_content', 'http_method', 'http_multipart', 'http_resource', 'http_query_string', 'http_query'):
-            return getattr(self.handler, name)
-        raise AttributeError('no attribute %s' % name)
-
-    @property
-    def connection_id(self):
-        return self.handler.id
-
-    def delay(self):
-        self.is_delayed = True
-
-    def respond(self, *args, **kwargs):
-        if len(args) > 0 and not isinstance(args[0], int):
-            self._respond(200, *args, **kwargs)
-        else:
-            self._respond(*args, **kwargs)
-
-    def _respond(self, code=200, content='', headers=None, message=None, content_type=None):
-        close = self.handler.http_headers.get('connection') == 'close'
-        self.is_delayed = True  # prevent second response on handler return
-        self.handler._rest_send(code, message, content, content_type, headers, close)
-
-    @property
-    def json(self):
-        if not hasattr(self, '_json'):
-            if self.http_content and self.http_content.lstrip()[0] in '[{':
-                try:
-                    self._json = json.loads(self.http_content)
-                except Exception:
-                    raise Exception('Unable to parse json content')
-            elif len(self.http_query) > 0:
-                self._json = self.http_query
-            else:
-                self._json = {n: v for n, v in urlparse.parse_qsl(self.http_content)}
-        return self._json
 
 
 class RESTHandler(http.HTTPHandler):
@@ -61,7 +16,7 @@ class RESTHandler(http.HTTPHandler):
         which match on resource (URI path component) and method (GET, PUT, POST, DELETE).
 
         Callback methods:
-            on_rest_data(self, *groups)
+            on_rest_data(self)
             on_rest_exception(self, exc_type, exc_value, exc_traceback)
             on_rest_send(self, code, message, content, headers)
     '''
@@ -78,13 +33,14 @@ class RESTHandler(http.HTTPHandler):
 
     def on_http_data(self):
         try:
-            request = RESTRequest(self)
-            self.on_rest_data(request, *self._groups)
+            self.on_rest_data()
+            request = rest_request.RESTRequest(self)
             result = self._rest_handler(request, *self._groups)
-            if not request.is_delayed:
+            if request.is_delayed:
+                request.handler.quiesce()  # stop reading in case another request is pipelined (see on_send_complete)
+            else:
                 request.respond(result)
         except Exception:
-            log.exception('eek')
             content = self.on_rest_exception(*sys.exc_info())
             kwargs = dict(code=501, message='Internal Server Error')
             if content:
@@ -92,11 +48,12 @@ class RESTHandler(http.HTTPHandler):
             self._rest_send(**kwargs)
             self.close('exception encountered')
 
-    def on_rest_data(self, request, *groups):
+    def on_rest_data(self):
         ''' called before rest_handler execution '''
         pass
 
     def on_rest_no_match(self):
+        ''' called when resource+method does not match anything in the mapper '''
         pass
 
     def on_rest_exception(self, exception_type, exception_value, exception_traceback):
@@ -151,3 +108,8 @@ class RESTHandler(http.HTTPHandler):
 
     def on_rest_send(self, code, message, content, headers):
         pass
+
+    def on_send_complete(self):
+        super(RESTHandler, self).on_send_complete()
+        if not self.is_closed:
+            self.unquiesce()  # start looking for another request in the pipeline

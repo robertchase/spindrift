@@ -1,4 +1,4 @@
-import spindrift.rest_mapper as rest_mapper
+import spindrift.rest.mapper as mapper
 
 
 def handler1():
@@ -10,7 +10,7 @@ def handler2():
 
 
 def test_simple():
-    m = rest_mapper.RESTMapper()
+    m = mapper.RESTMapper()
     m.add('/foo/bar$', get='test.test_restmapper.handler1')
     h, g = m.match('/foo/bar', 'GET')
     assert h == handler1
@@ -18,7 +18,7 @@ def test_simple():
 
 
 def test_no_match():
-    m = rest_mapper.RESTMapper()
+    m = mapper.RESTMapper()
     m.add('/foo/bar$', get='test.test_restmapper.handler1')
     h, g = m.match('/foo/beer', 'GET')
     assert h is None
@@ -26,7 +26,7 @@ def test_no_match():
 
 
 def test_group():
-    m = rest_mapper.RESTMapper()
+    m = mapper.RESTMapper()
     m.add('/foo/(\d+)/bar$', get='test.test_restmapper.handler1')
     h, g = m.match('/foo/123/bar', 'GET')
     assert h == handler1
@@ -34,7 +34,7 @@ def test_group():
 
 
 def test_first_wins():
-    m = rest_mapper.RESTMapper()
+    m = mapper.RESTMapper()
     m.add('/foo/bar$', get='test.test_restmapper.handler1')
     m.add('/foo/bar$', get='test.test_restmapper.handler2')
     h, g = m.match('/foo/bar', 'GET')
