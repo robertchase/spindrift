@@ -25,14 +25,14 @@ class Handler(object):
             on_accept - called for inbound server connections
                         return False to reject the connection (default True)
             on_failed_handshake - called for ssl handshake failures
-            on_fail - called for outbound connection failures
+            on_fail(self, message) - called for outbound connection failures
             on_handshake(self, cert) - called after ssl handshake
                                        return False to reject (default True)
             on_open - called after tcp connection (before any ssl negotiation)
             on_ready - called when connection is ready to use
             on_data(self, data) - called when data arrives
             on_close(self, reason) - called on connection close
-            on_send_complete - called when send is complete, including libray buffered data
+            on_send_complete - called when send is complete, including library buffered data
                                this does not include TCP buffering
 
         These on_* methods are not fatal, and rather uncommon. The default action is to
