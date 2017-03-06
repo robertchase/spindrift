@@ -56,7 +56,7 @@ class HTTPHandler(Handler):
             charset = [c.split('=')[1].strip() for c in h.split(';') if 'charset' in c]
             if len(charset):
                 return charset[0]
-        return None
+        return 'utf-8'
 
     def on_http_send(self, headers, content):
         pass
