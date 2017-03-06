@@ -1,0 +1,50 @@
+STATE init
+    EVENT server server
+    EVENT connection connection
+    EVENT config
+        ACTION add_config
+
+STATE connection
+    ENTER add_connection
+    EVENT header
+        ACTION add_header
+    EVENT connection
+        ACTION add_connection
+    EVENT config
+        ACTION add_config
+    EVENT server server
+
+STATE server
+    ENTER add_server
+    EVENT route route
+    EVENT server
+        ACTION add_server
+    EVENT config
+        ACTION add_config
+    EVENT connection connection
+
+STATE route
+    ENTER add_route
+    EVENT get
+        ACTION add_method
+    EVENT post
+        ACTION add_method
+    EVENT put
+        ACTION add_method
+    EVENT delete
+        ACTION add_method
+    EVENT route
+        ACTION add_route
+    EVENT config
+        ACTION add_config
+    EVENT server server
+    EVENT connection connection
+
+# SERVER name port
+# ROUTE pattern
+# GET | POST | PUT | DELETE path
+#
+# CONNECTION auth http://auth:10001/auth
+# HEADER x-auth-api-key config_name=apikey default=asd123!
+#
+# CONFIG name default=default validate=int|bool|file env=env
