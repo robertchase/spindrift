@@ -1,3 +1,4 @@
+import functools
 import os
 import socket
 from urllib.parse import urlparse
@@ -6,12 +7,14 @@ import spindrift.config as config_file
 from spindrift.micro.fsm_micro import create as create_machine
 import spindrift.micro.handler as handler
 from spindrift.network import Network
+from spindrift.timer import Timer
 
 
 class Micro(object):
 
     def __init__(self):
         self.NETWORK = Network()
+        self.TIMER = Timer()
 
     def __repr__(self):
         rep = []
@@ -113,7 +116,9 @@ class Parser(object):
             self.connection = connection
             self._add_config('%s.url' % connection.name, value=connection.url)
             self._add_config('%s.is_active' % connection.name, value=True, validator=config_file.validate_bool)
-            self._add_config('%s.is_json' % connection.name, value=True, validator=config_file.validate_bool)
+            self._add_config('%s.is_json' % connection.name, value=connection.is_json, validator=config_file.validate_bool)
+            self._add_config('%s.is_debug' % connection.name, value=connection.is_debug, validator=config_file.validate_bool)
+            self._add_config('%s.timeout' % connection.name, value=connection.timeout, validator=float)
 
     def act_add_header(self):
         self.connection.add_header(Header(*self.args, **self.kwargs))
@@ -188,11 +193,15 @@ class Method(object):
         return 'Method[method=%s, path=%s]' % (self.method, self.path)
 
 
-def _method(method, connection, callback, path, headers=None, is_json=True, body=None, **kwargs):
-    if body is None:
-        body = kwargs
-    ctx = handler.OutboundContext(callback, method, connection.hostname, connection.path + path, headers=headers, is_json=is_json, body=body)
-    return MICRO.NETWORK.add_connection(connection.host, connection.port, handler.OutboundHandler, ctx, is_ssl=connection.is_ssl)
+def _method(method, connection, callback, path, headers=None, is_json=None, is_debug=None, is_ssl=None, timeout=None, body=None, **kwargs):
+    is_json = is_json if is_json is not None else connection.is_json
+    is_debug = is_debug if is_debug is not None else connection.is_debug
+    is_ssl = is_ssl if is_ssl is not None else connection.is_ssl
+    timeout = timeout if timeout is not None else connection.timeout
+    body = body if body is not None else kwargs
+    timer = MICRO.TIMER.add(None, timeout * 1000)
+    ctx = handler.OutboundContext(callback, connection.url, method, connection.hostname, connection.path + path, headers, body, is_json, is_debug, timer)
+    return MICRO.NETWORK.add_connection(connection.host, connection.port, handler.OutboundHandler, ctx, is_ssl=is_ssl)
 
 
 class Connections(dict):
@@ -203,13 +212,21 @@ class Connections(dict):
 
 class Connection(object):
 
-    def __init__(self, name, url):
+    def __init__(self, name, url, is_json=True, is_debug=False, timeout=5.0):
         self.name = name
         self.url = url
+        self.is_json = config_file.validate_bool(is_json)
+        self.is_debug = config_file.validate_bool(is_json)
+        self.timeout = float(timeout)
         self.headers = []
 
     def __repr__(self):
         return 'Connection[name=%s, url=%s, headers=%s' % (self.name, self.url, self.headers)
+
+    def __getattr__(self, name):
+        if name in ('get', 'put', 'post'):
+            return functools.partial(_method, name.upper(), self)
+        raise AttributeError("'%s' object has not attribute '%s'" % (self.__class__.__name__, name))
 
     def add_header(self, header):
         self.headers.append(header)
@@ -237,9 +254,6 @@ class Connection(object):
             self.path = p.path
             self.is_ssl = p.scheme == 'https'
 
-    def get(self, callback, path, **kwargs):
-        return _method('GET', self, callback, path, **kwargs)
-
 
 class Header(object):
 
@@ -257,10 +271,15 @@ class Header(object):
 
 if __name__ == '__main__':
 
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+
     def on_result(rc, result):
         print('on result: rc=%s, result=%s' % (rc, result))
 
     MICRO.load()
-    connection = MICRO.connections.test.get(on_result, '/ping')
+    # for key in MICRO.config.ordered_keys:
+    #     print('%s=%s' % (key, getattr(MICRO.config, key)))
+    connection = MICRO.connections.test.get(on_result, '/dummy/ping', is_debug=True, is_ssl=True)
     while connection.is_open:
         MICRO.service()
