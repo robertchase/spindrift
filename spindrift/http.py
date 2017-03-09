@@ -1,9 +1,9 @@
-from spindrift.network import Handler
-
 from io import StringIO
 import time
 import urllib.parse as urlparse
 import gzip
+
+from spindrift.network import Handler
 
 import logging
 log = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ class HTTPHandler(Handler):
 
                     http_headers - dictionary of headers
                     http_content - content
+                    t_http_data - time when http data fully arrives
 
                     client:
                         http_status_code - integer code from status line
@@ -40,6 +41,7 @@ class HTTPHandler(Handler):
                 on_http_data(self) - when data is available
                 on_http_error(self, message)
         '''
+        self.t_http_data = 0
         self._data = bytearray()
         self._setup()
 
@@ -94,6 +96,7 @@ class HTTPHandler(Handler):
                 return self._on_http_error('Malformed multipart message')
         if self.charset:
             self.http_content = self.http_content.decode(self.charset)
+        self.t_http_data = time.perf_counter()
         self.on_http_data()
 
     def on_send_complete(self):
