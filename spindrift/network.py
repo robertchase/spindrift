@@ -24,7 +24,7 @@ class Handler(object):
             on_init - called at object setup
             on_accept - called for inbound server connections
                         return False to reject the connection (default True)
-            on_failed_handshake - called for ssl handshake failures
+            on_failed_handshake(self, reason) - called for ssl handshake failures
             on_fail(self, message) - called for outbound connection failures
             on_handshake(self, cert) - called after ssl handshake
                                        return False to reject (default True)
@@ -172,8 +172,8 @@ class Handler(object):
             return
         self.t_close = time.perf_counter()
         self.is_closed = True
-        self._sock.close()
         self._unregister()
+        self._sock.close()
         self._on_close()  # for libraries
         self.on_close(reason)
 
@@ -192,11 +192,32 @@ class Handler(object):
         return not self.is_outbound
 
     @property
+    def is_ssl(self):
+        return self._ssl_ctx is not None
+
+    @property
+    def address(self):
+        try:
+            return self._sock.getsockname()
+        except socket.error:
+            return ('Closing', 0)
+
+    @property
     def peer_address(self):
         try:
             return self._sock.getpeername()
         except socket.error:
             return ('Closing', 0)
+
+    @property
+    def full_address(self):
+        local = '%s:%s' % self.address
+        remote = '%s:%s' % self.peer_address
+        if self.is_outbound:
+            direction = '->'
+        else:
+            direction = '<-'
+        return '%s %s %s' % (local, direction, remote)
 
     def _on_init(self):
         pass
