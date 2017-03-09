@@ -122,6 +122,9 @@ class SimpleTimer(object):
     def is_expired(self):
         return self._expiration < time.time()
 
+    def set_action(self, action):
+        self._action = action
+
     def start(self):
         if self.is_running:
             raise Exception("can't start a running timer")
