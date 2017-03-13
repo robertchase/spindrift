@@ -30,39 +30,13 @@ class Config (object):
 
       as though it were a hierachy of python objects.
 
-      Indexed Names
-
-        It is also possible to have items which are indexed by a final numerical
-        value, as in the 'url.host' items below:
-
-          url.count = 2
-          url.host.1 = http://www.google.com
-          url.host.2 = http://www.yahoo.com
-
-        These items must be defined using the counter parameter, and this
-        parameter must reference a previously defined integer value. For
-        instance:
-
-          _define ('url.count', 0, validate_int)
-          _define ('url.host', counter='url.count')
-          _define ('url.port', 80, validate_int, counter='url.count')
-
-        In this case 'url.count' specifies the highest index value that
-        'url.host' or 'url.port' can have. The index value must be between one
-        and the specified counter value, inclusive. The syntax for referencing
-        an indexed name is:
-
-          cfg.url.host [1]
-          cft.url.port [1]
-
       NOTES:
 
       1. Methods are prepended with '_' in order not to pollute the namespace
          used by the defined values.
 
       2. Valid names are composed of letters, digits, underscores and periods.
-         No part of a valid name can be composed only of digits, except for the
-         final part of an Indexed Name.
+         No part of a valid name can be composed only of digits.
 
       3. The _load function ignores leading and trailing whitespace in the
          names and values.
@@ -71,10 +45,7 @@ class Config (object):
          character, thus allowing for comments. To prevent a '#' value from
          starting a comment, escape it by preceeding it with a '\' character.
 
-      5. The value parameter of the _define function is the initial value for
-         the item, or the default value if the item is an Indexed Name.
-
-      6. If the env parameter is specified on the _define function, and an
+      5. If the env parameter is specified on the _define function, and an
          env variable of this name is set, then the value of the env variable
          overrides the 'value' parameter and any parmemter read from the config
          file.
@@ -83,8 +54,8 @@ class Config (object):
 
     def __init__(self):
         self.ordered_keys = []
-        self.__values = ConfigItem()
-        self.__direct = {}
+        self._values = ConfigItem()
+        self._direct = {}
 
     def __repr__(self):
         return '\n'.join('%s=%s' % (k, getattr(self, k) if getattr(self, k) is not None else '') for k in self.ordered_keys)
@@ -92,7 +63,7 @@ class Config (object):
     def __getattr__(self, name):
         if '.' in name:
             return self._get(name)
-        return getattr(self.__values, name)
+        return getattr(self._values, name)
 
     def _get(self, name):
         parts = name.split('.')
@@ -101,9 +72,9 @@ class Config (object):
             item = getattr(item, part)
         return item
 
-    def _define(self, name, value=None, validator=None, counter=None, env=None):
+    def _define(self, name, value=None, validator=None, env=None):
         self.ordered_keys.append(name)
-        item = self.__values
+        item = self._values
         for part in name.split('.'):
             if not isinstance(item._value, dict):
                 raise AttributeError(
@@ -118,40 +89,16 @@ class Config (object):
         item._env = os.getenv(env) if env else None
         if item._env and validator:
             item._env = validator(item._env)
-        if counter:
-            if counter not in self.__direct:
-                raise AttributeError(
-                    "Counter parameter '%s' not defined" % counter)
-            if not isinstance(self.__direct[counter]._value, int):
-                raise AttributeError("Counter parameter '%s' must be an integer" %
-                                     counter)
-            item._counter = self.__direct[counter]
-            item._default = value
-        else:
-            item._value = value
-        self.__direct[name] = item
+        item._value = value
+        self._direct[name] = item
 
     def _set(self, name, value):
-        if name in self.__direct:
-            item = self.__direct[name]
-            if item._validator:
-                value = item._validator(value)
-            item._value = value
-        else:
-            toks = name.split('.')
-            try:
-                count = int(toks[-1])
-                countedname = '.'.join(toks[:-1])
-                item = self.__direct[countedname]
-                counter = item._counter._value
-            except:
-                raise AttributeError(
-                    "'%s' is not a defined config parameter" % name)
-            if count < 1 or count > counter:
-                raise AttributeError("'%s' counter is out of range" % name)
-            if item._validator:
-                value = item._validator(value)
-            item._value[str(count)] = value
+        if name not in self._direct:
+            raise AttributeError("'%s' is not a defined config parameter" % name)
+        item = self._direct[name]
+        if item._validator:
+            value = item._validator(value)
+        item._value = value
 
     def _load(self, filename):
         for lineno, line in enumerate(open(filename), start=1):
