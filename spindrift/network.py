@@ -9,6 +9,185 @@ import logging
 log = logging.getLogger(__name__)
 
 
+class Network(object):
+
+    def __init__(self):
+        self._id = 0
+        self._selector = selectors.DefaultSelector()
+
+    def add_server(self, port, handler, context=None, is_ssl=False, ssl_certfile=None, ssl_keyfile=None, ssl_password=None):
+        ''' Add a Server (listening) socket
+
+            Required Arguments:
+                port - listening port
+                handler - Handler class/subclass assigned to each incoming connection
+
+            Optional Arguments:
+                context - arbitrary context assigned to each incoming connection
+                is_ssl - if True, incoming connections must be ssl
+                ssl_certificate - used to set up server side of ssl connection
+                ssl_keyfile - used to set up server side of ssl connection
+                ssl_password - used to set up server side of ssl connection
+
+            Return:
+                Listener - normally, this is ignored
+
+            Notes:
+
+            1. When a new connection arrives (before ssl handshake) the on_accept
+               method is called on the socket's Handler. If this method returns
+               False, the socket is immediately closed. Default is True.
+
+               see: test/test_accept.py
+
+            2. A Server will continue to be checked for new connections at each
+               call to Network.service until Listener.close or Network.close is
+               called.
+
+            3. The same context is shared with every incoming connection handler.
+               Save connection-specific data in the handler, and not in the
+               context, so that simultaneous connections do not interfere with
+               each other.
+
+               see: test/test_context.py
+
+            4. If you want to stand up an ssl server, make sure you understand what
+               is going on. Read the python ssl documentation and heed the myriad
+               warnings.
+
+               see: test/test_ssl.py for a self-signed server configuration
+        '''
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('', port))
+        s.setblocking(False)
+        s.listen(100)
+        if is_ssl:
+            ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+            if ssl_certfile:
+                ssl_ctx.load_cert_chain(ssl_certfile, ssl_keyfile, ssl_password)
+        l = Listener(s, self, context=context, handler=handler, ssl_ctx=ssl_ctx if is_ssl else None)
+        self._register(s, selectors.EVENT_READ, l._do_accept)
+        return l
+
+    def add_connection(self, host, port, handler, context=None, is_ssl=False):
+        ''' Add a Client (outbound) socket
+
+        Required Arguments:
+            host - name or ip address of server
+            port - server port to connect to
+            handler Handler class/subclass assigned to the connection
+
+        Optional Arguments:
+            context - arbitrary context assigned to the connection
+            is_ssl - if True, connection will be ssl
+        '''
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setblocking(False)
+        if is_ssl:
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+        h = handler(s, self, context=context, is_outbound=True, host=host, ssl_ctx=ssl_ctx if is_ssl else None)
+        try:
+            s.connect((host, port))
+        except OSError as e:
+            '''
+                if EINPROGRESS, then connection is still underway. this is the socket's way
+                of preventing a block on connect. we wait for the socket to go writeable,
+                and then continue handling things in the _on_delayed_connect method.
+            '''
+            if e.errno == errno.EINPROGRESS:
+                h._register(selectors.EVENT_WRITE, h._on_delayed_connect)
+            else:
+                h.close('host=%s, port=%s, error=%s', host, port, e.strerror)
+        else:
+            h._on_connect(self)
+        return h
+
+    def service(self, timeout=.1, max_iterations=100):
+        processed = False
+        while True:
+            if not self._service(timeout):
+                return processed
+            processed = True
+            max_iterations -= 1
+            if max_iterations == 0:
+                return
+            timeout = 0
+
+    def close(self):
+        ''' close any registered sockets
+
+            In a long-running server, this doesn't matter that much, but for bursty
+            activity, like unit tests, it is important to close sockets so they are
+            quickly available for reuse.
+
+            This method will not see quiesced or otherwise unregistered connections;
+            this is not a problem, since listening sockets are the more important
+            quick-resuse case, and they are always registered.
+
+            This is unlikely to be used except in unit tests and, if one is being
+            polite, at program termination.
+        '''
+        for k in self._selector.get_map().values():
+            try:
+                s = k.fileobj
+                s.close()
+            except Exception:
+                pass
+
+    @property
+    def _next_id(self):
+        self._id += 1
+        return self._id
+
+    def _register(self, sock, event, data):
+        self._selector.register(sock, event, data)
+
+    def _register_modify(self, sock, event, data):
+        self._selector.modify(sock, event, data)
+
+    def _unregister(self, sock):
+        try:
+            self._selector.unregister(sock)
+        except ValueError:
+            pass
+
+    def _set_pending(self, callback):
+        '''
+            an ssl-wrapped socket buffers data. the underlying socket may have nothing to
+            read, but the ssl buffer may still contain data to be processed. a handler
+            registers here if it still has some ssl-buffered data after having processed
+            recv'd data.  it'll get another chance to process at the end of the _service
+            loop.
+
+            see Handler._do_read.
+        '''
+        self._pending.append(callback)
+
+    def _handle_pending(self):
+        p, self._pending = self._pending, []
+        for callback in p:
+            callback()
+
+    def _service(self, timeout):
+        processed = False
+        self._pending = []
+
+        # handle read/write ready events
+        for key, mask in self._selector.select(timeout):
+            processed = True
+            key.data()
+
+        # handle ssl pending reads
+        while len(self._pending):
+            self._handle_pending()
+
+        return processed
+
+
 class Handler(object):
     ''' Handle events on a network connection
 
@@ -403,182 +582,3 @@ class Listener(object):
             h._on_connect()
         else:
             h.close('connection not accepted')
-
-
-class Network(object):
-
-    def __init__(self):
-        self._id = 0
-        self._selector = selectors.DefaultSelector()
-
-    def add_server(self, port, handler, context=None, is_ssl=False, ssl_certfile=None, ssl_keyfile=None, ssl_password=None):
-        ''' Add a Server (listening) socket
-
-            Required Arguments:
-                port - listening port
-                handler - Handler class/subclass assigned to each incoming connection
-
-            Optional Arguments:
-                context - arbitrary context assigned to each incoming connection
-                is_ssl - if True, incoming connections must be ssl
-                ssl_certificate - used to set up server side of ssl connection
-                ssl_keyfile - used to set up server side of ssl connection
-                ssl_password - used to set up server side of ssl connection
-
-            Return:
-                Listener - normally, this is ignored
-
-            Notes:
-
-            1. When a new connection arrives (before ssl handshake) the on_accept
-               method is called on the socket's Handler. If this method returns
-               False, the socket is immediately closed. Default is True.
-
-               see: test/test_accept.py
-
-            2. A Server will continue to be checked for new connections at each
-               call to Network.service until Listener.close or Network.close is
-               called.
-
-            3. The same context is shared with every incoming connection handler.
-               Save connection-specific data in the handler, and not in the
-               context, so that simultaneous connections do not interfere with
-               each other.
-
-               see: test/test_context.py
-
-            4. If you want to stand up an ssl server, make sure you understand what
-               is going on. Read the python ssl documentation and heed the myriad
-               warnings.
-
-               see: test/test_ssl.py for a self-signed server configuration
-        '''
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('', port))
-        s.setblocking(False)
-        s.listen(100)
-        if is_ssl:
-            ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-            if ssl_certfile:
-                ssl_ctx.load_cert_chain(ssl_certfile, ssl_keyfile, ssl_password)
-        l = Listener(s, self, context=context, handler=handler, ssl_ctx=ssl_ctx if is_ssl else None)
-        self._register(s, selectors.EVENT_READ, l._do_accept)
-        return l
-
-    def add_connection(self, host, port, handler, context=None, is_ssl=False):
-        ''' Add a Client (outbound) socket
-
-        Required Arguments:
-            host - name or ip address of server
-            port - server port to connect to
-            handler Handler class/subclass assigned to the connection
-
-        Optional Arguments:
-            context - arbitrary context assigned to the connection
-            is_ssl - if True, connection will be ssl
-        '''
-
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setblocking(False)
-        if is_ssl:
-            ssl_ctx = ssl.create_default_context()
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_NONE
-        h = handler(s, self, context=context, is_outbound=True, host=host, ssl_ctx=ssl_ctx if is_ssl else None)
-        try:
-            s.connect((host, port))
-        except OSError as e:
-            '''
-                if EINPROGRESS, then connection is still underway. this is the socket's way
-                of preventing a block on connect. we wait for the socket to go writeable,
-                and then continue handling things in the _on_delayed_connect method.
-            '''
-            if e.errno == errno.EINPROGRESS:
-                h._register(selectors.EVENT_WRITE, h._on_delayed_connect)
-            else:
-                h.close('host=%s, port=%s, error=%s', host, port, e.strerror)
-        else:
-            h._on_connect(self)
-        return h
-
-    def service(self, timeout=.1, max_iterations=100):
-        processed = False
-        while True:
-            if not self._service(timeout):
-                return processed
-            processed = True
-            max_iterations -= 1
-            if max_iterations == 0:
-                return
-            timeout = 0
-
-    def close(self):
-        ''' close any registered sockets
-
-            In a long-running server, this doesn't matter that much, but for bursty
-            activity, like unit tests, it is important to close sockets so they are
-            quickly available for reuse.
-
-            This method will not see quiesced or otherwise unregistered connections;
-            this is not a problem, since listening sockets are the more important
-            quick-resuse case, and they are always registered.
-
-            This is unlikely to be used except in unit tests and, if one is being
-            polite, at program termination.
-        '''
-        for k in self._selector.get_map().values():
-            try:
-                s = k.fileobj
-                s.close()
-            except Exception:
-                pass
-
-    @property
-    def _next_id(self):
-        self._id += 1
-        return self._id
-
-    def _register(self, sock, event, data):
-        self._selector.register(sock, event, data)
-
-    def _register_modify(self, sock, event, data):
-        self._selector.modify(sock, event, data)
-
-    def _unregister(self, sock):
-        try:
-            self._selector.unregister(sock)
-        except ValueError:
-            pass
-
-    def _set_pending(self, callback):
-        '''
-            an ssl-wrapped socket buffers data. the underlying socket may have nothing to
-            read, but the ssl buffer may still contain data to be processed. a handler
-            registers here if it still has some ssl-buffered data after having processed
-            recv'd data.  it'll get another chance to process at the end of the _service
-            loop.
-
-            see Handler._do_read.
-        '''
-        self._pending.append(callback)
-
-    def _handle_pending(self):
-        p, self._pending = self._pending, []
-        for callback in p:
-            callback()
-
-    def _service(self, timeout):
-        processed = False
-        self._pending = []
-
-        # handle read/write ready events
-        for key, mask in self._selector.select(timeout):
-            processed = True
-            key.data()
-
-        # handle ssl pending reads
-        while len(self._pending):
-            self._handle_pending()
-
-        return processed
