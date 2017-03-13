@@ -6,8 +6,6 @@ STATE init
 
 STATE connection
     ENTER add_connection
-    EVENT header
-        ACTION add_header
     EVENT connection
         ACTION add_connection
     EVENT config
