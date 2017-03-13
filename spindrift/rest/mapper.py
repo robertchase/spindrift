@@ -1,5 +1,6 @@
-import importlib
 import re
+
+from spindrift.import_utils import import_by_pathname
 
 import logging
 log = logging.getLogger(__name__)
@@ -59,22 +60,14 @@ class RESTMapper(object):
         return None, None
 
 
-def _import_by_pathname(target):
-    if isinstance(target, str):
-        modnam, funnam = target.rsplit('.', 1)
-        mod = importlib.import_module(modnam)
-        return getattr(mod, funnam)
-    return target
-
-
 class RESTMapping(object):
     ''' container for one mapping definition '''
 
     def __init__(self, pattern, get, post, put, delete):
         self.pattern = re.compile(pattern)
         self.method = {
-            'get': _import_by_pathname(get),
-            'post': _import_by_pathname(post),
-            'put': _import_by_pathname(put),
-            'delete': _import_by_pathname(delete),
+            'get': import_by_pathname(get),
+            'post': import_by_pathname(post),
+            'put': import_by_pathname(put),
+            'delete': import_by_pathname(delete),
         }
