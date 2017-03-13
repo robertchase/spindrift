@@ -1,7 +1,10 @@
 import json
 import time
+import traceback
 
 from spindrift.http import HTTPHandler
+from spindrift.import_utils import import_by_pathname
+from spindrift.rest.handler import RESTHandler
 
 
 import logging
@@ -10,25 +13,55 @@ log = logging.getLogger(__name__)
 
 class OutboundContext(object):
 
-    def __init__(self, callback, url, method, host, path, headers, body, is_json, is_debug, timer):
+    def __init__(self, callback, config, url, method, host, path, headers, body, is_json, is_debug, wrapper, timer, **kwargs):
         self.callback = callback
+        self.config = config
         self.url = url + path
         self.method = method
-        body = body if len(body) else ''
-        self.send = {'method': method, 'host': host, 'resource': path, 'headers': headers, 'content': body}
+        self.host = host
+        self.path = path
+        self.headers = headers
+        self.body = body
         self.is_json = is_json
         self.is_debug = is_debug
+        self.wrapper = wrapper
         self.timer = timer
+        self.kwargs = kwargs
 
 
 class OutboundHandler(HTTPHandler):
 
     def on_init(self):
         self.is_done = False
+        self.setup()
         self.context.timer.set_action(self.on_timeout)
         self.context.timer.start()
         if self.context.is_debug:
             log.debug('starting outbound connection, oid=%s: %s %s', self.id, self.context.method, self.context.url)
+
+    def setup(self):
+        context = self.context
+
+        # coerce remaining kwargs into body, if body not defined
+        if context.body is None:
+            if len(context.kwargs) == 0:
+                context.body = ''
+            else:
+                context.body = context.kwargs
+
+        # jsonify body, if it makes sense
+        if isinstance(context.body, (dict, list, tuple, float, bool, int)):
+            try:
+                context.body = json.dumps(context.kwargs)
+            except Exception:
+                context.body = str(context.kwargs)
+            else:
+                if context.headers is None:
+                    context.headers = {}
+                context.headers['Content-Type'] = 'application/json; charset=utf-8'
+
+        # create arguments for send
+        context.send = {'method': context.method, 'host': context.host, 'resource': context.path, 'headers': context.headers, 'content': context.body}
 
     def done(self, result, rc=1):
         if self.is_done:
@@ -92,7 +125,37 @@ class OutboundHandler(HTTPHandler):
             rc = 1
             if result == '':
                 result = self.http_status_message
+
+        if rc == 0 and self.context.wrapper:
+            wrap = import_by_pathname(self.context.wrapper)
+            result = wrap(result)
+
         self.done(result, rc)
 
     def on_timeout(self):
         self.close('timeout')
+
+
+class InboundHandler(RESTHandler):
+
+    def on_open(self):
+        log.info('open: cid=%d, %s', self.id, self.full_address)
+
+    def on_close(self, reason):
+        log.info('close: cid=%s, reason=%s', self.id, reason)
+
+    def on_rest_data(self, *groups):
+        log.info('request cid=%d, method=%s, resource=%s, query=%s, groups=%s', self.id, self.http_method, self.http_resource, self.http_query_string, groups)
+
+    def on_rest_send(self, code, message, content, headers):
+        log.debug('response cid=%d, code=%d, message=%s, headers=%s', self.id, code, message, headers)
+
+    def on_rest_no_match(self):
+        log.warning('no match cid=%d, method=%s, resource=%s', self.id, self.http_method, self.http_resource)
+
+    def on_http_error(self, message):
+        log.warning('http error cid=%d: %s', self.id, message)
+
+    def on_rest_exception(self, exception_type, value, trace):
+        log.exception('exception encountered:')
+        return traceback.format_exc(trace)
