@@ -42,20 +42,9 @@ class RESTHandler(http.HTTPHandler):
             self._rest_send(404, 'Not Found')
             self.close('matching rest handler not found')
 
-    def check_api_key(self):
-        api_key = self.context.api_key
-        if api_key:
-            if api_key != self.http_headers.get('x-auth-api-key'):
-                log.warning('api key failure cid=%s', self.id)
-                return False
-        return True
-
     def on_http_data(self):
         try:
             self.on_rest_data(self._groups)
-            if not self.check_api_key():
-                self._rest_send(401)
-                return
             request = rest_request.RESTRequest(self)
             result = self._rest_handler(request, *self._groups)
             if request.is_delayed:

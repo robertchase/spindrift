@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 class OutboundContext(object):
 
-    def __init__(self, callback, config, url, method, host, path, headers, body, is_json, is_debug, wrapper, timer, **kwargs):
+    def __init__(self, callback, config, url, method, host, path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs):
         self.callback = callback
         self.config = config
         self.url = url + path
@@ -24,6 +24,7 @@ class OutboundContext(object):
         self.body = body
         self.is_json = is_json
         self.is_debug = is_debug
+        self.api_key = api_key
         self.wrapper = wrapper
         self.timer = timer
         self.kwargs = kwargs
@@ -59,6 +60,12 @@ class OutboundHandler(HTTPHandler):
                 if context.headers is None:
                     context.headers = {}
                 context.headers['Content-Type'] = 'application/json; charset=utf-8'
+
+        # setup api key
+        if context.api_key:
+            if context.headers is None:
+                context.headers = {}
+            context.headers['X-Auth-API-Key'] = context.api_key
 
         # create arguments for send
         context.send = {'method': context.method, 'host': context.host, 'resource': context.path, 'headers': context.headers, 'content': context.body}
@@ -143,6 +150,20 @@ class InboundHandler(RESTHandler):
 
     def on_close(self, reason):
         log.info('close: cid=%s, reason=%s', self.id, reason)
+
+    def check_api_key(self):
+        api_key = self.context.api_key
+        if api_key:
+            if api_key == self.http_headers.get('x-auth-api-key'):
+                return True
+            log.warning('api key failure cid=%s', self.id)
+            return False
+        return True
+
+    def on_http_headers(self):
+        if not self.check_api_key():
+            self._rest_send(401)
+            self.close('api key mismatch')
 
     def on_rest_data(self, *groups):
         log.info('request cid=%d, method=%s, resource=%s, query=%s, groups=%s', self.id, self.http_method, self.http_resource, self.http_query_string, groups)
