@@ -100,8 +100,16 @@ class Config (object):
             value = item._validator(value)
         item._value = value
 
-    def _load(self, filename):
-        for lineno, line in enumerate(open(filename), start=1):
+    def _load(self, config):
+
+        if isinstance(config, str):
+            config = open(config).readlines()
+        elif isinstance(config, list):
+            pass
+        else:
+            config = config.readlines()
+
+        for lineno, line in enumerate(config, start=1):
 
             m = re.match(r'(.*?[^\\])?#', line)  # look for first non-escaped comment indicator ('#')
             if m:
@@ -116,9 +124,9 @@ class Config (object):
                 try:
                     self._set(match.group(1), match.group(2))
                 except Exception as e:
-                    raise Exception('Error on line %d of %s: %s' % (lineno, filename, e))
+                    raise Exception('Error on line %d of config: %s' % (lineno, e))
             else:
-                raise ValueError('Error on line %d of %s: invalid syntax' % (lineno, filename))
+                raise ValueError('Error on line %d of config: invalid syntax' % lineno)
 
 
 class ConfigItem (object):
