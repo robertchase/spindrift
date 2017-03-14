@@ -1,5 +1,4 @@
 import functools
-import os
 import socket
 from urllib.parse import urlparse
 
@@ -42,7 +41,7 @@ class Micro(object):
         self.config._define('loop.sleep', value=100)
         self.config._define('loop.max_iterations', value=100)
 
-        if config and os.path.exists(config):
+        if config:
             self.config._load(config)
 
         return self
@@ -56,6 +55,9 @@ class Micro(object):
     def service(self):
         self.NETWORK.service(self.config.loop.sleep, self.config.loop.max_iterations)
         self.TIMER.service()
+
+    def close(self):
+        self.NETWORK.close()
 
 
 MICRO = Micro()
@@ -134,7 +136,8 @@ class Parser(object):
             self._add_config('connection.%s.url' % connection.name, value=connection.url)
             self._add_config('connection.%s.is_active' % connection.name, value=True, validator=config_file.validate_bool)
             self._add_config('connection.%s.is_json' % connection.name, value=connection.is_json, validator=config_file.validate_bool)
-            self._add_config('connection.%s.is_debug' % connection.name, value=connection.is_debug, validator=config_file.validate_bool)
+            self._add_config('connection.%s.is_debug' % connection.name, value=False, validator=config_file.validate_bool)
+            self._add_config('connection.%s.api_key' % connection.name)
             self._add_config('connection.%s.wrapper' % connection.name, value=connection.wrapper)
             self._add_config('connection.%s.timeout' % connection.name, value=connection.timeout, validator=float)
 
@@ -225,14 +228,15 @@ class Method(object):
         return 'Method[method=%s, path=%s]' % (self.method, self.path)
 
 
-def _method(method, connection, config, callback, path, headers=None, is_json=None, is_debug=None, wrapper=None, is_ssl=None, timeout=None, body=None, **kwargs):
+def _method(method, connection, config, callback, path, headers=None, is_json=None, is_debug=None, api_key=None, wrapper=None, is_ssl=None, timeout=None, body=None, **kwargs):
     is_json = is_json if is_json is not None else connection.is_json
     is_debug = is_debug if is_debug is not None else connection.is_debug
+    api_key = api_key if api_key is not None else connection.api_key
     wrapper = wrapper if wrapper is not None else connection.wrapper
     is_ssl = is_ssl if is_ssl is not None else connection.is_ssl
     timeout = timeout if timeout is not None else connection.timeout
     timer = MICRO.TIMER.add(None, timeout * 1000)
-    ctx = handler.OutboundContext(callback, config, connection.url, method, connection.hostname, connection.path + path, headers, body, is_json, is_debug, wrapper, timer, **kwargs)
+    ctx = handler.OutboundContext(callback, config, connection.url, method, connection.hostname, connection.path + path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs)
     return MICRO.NETWORK.add_connection(connection.host, connection.port, handler.OutboundHandler, ctx, is_ssl=is_ssl)
 
 
@@ -244,11 +248,10 @@ class Connections(dict):
 
 class Connection(object):
 
-    def __init__(self, name, url, is_json=True, is_debug=False, wrapper=None, timeout=5.0):
+    def __init__(self, name, url, is_json=True, wrapper=None, timeout=5.0):
         self.name = name
         self.url = url
         self.is_json = config_file.validate_bool(is_json)
-        self.is_debug = config_file.validate_bool(is_json)
         self.wrapper = wrapper
         self.timeout = float(timeout)
 
@@ -258,7 +261,7 @@ class Connection(object):
     def __getattr__(self, name):
         if name in ('get', 'put', 'post'):
             return functools.partial(_method, name.upper(), self, MICRO.config._get('connection.%s' % self.name))
-        raise AttributeError("'%s' object has not attribute '%s'" % (self.__class__.__name__, name))
+        raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
     def setup(self, config):
         config = config._get('connection.%s' % self.name)
@@ -266,6 +269,7 @@ class Connection(object):
         self.is_active = config.is_active
         self.is_json = config.is_json
         self.is_debug = config.is_debug
+        self.api_key = config.api_key
         self.wrapper = config.wrapper
 
         if not self.is_active:
@@ -291,13 +295,17 @@ if __name__ == '__main__':
     import logging
     logging.basicConfig(level=logging.DEBUG)
 
-    parser = argparse.ArgumentParser(description='start a micro service')
+    parser = argparse.ArgumentParser(
+        description='start a micro service',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument('--config', default='config', help='configuration file')
+    parser.add_argument('--no-config', dest='no_config', default=False, action='store_true', help="don't use a config file")
     parser.add_argument('--micro', default='micro', help='micro description file')
     parser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
     args = parser.parse_args()
 
-    MICRO.load(micro=args.micro, config=args.config)
+    MICRO.load(micro=args.micro, config=args.config if args.no_config is False else None)
 
     if args.config_only:
         print(MICRO.config)
