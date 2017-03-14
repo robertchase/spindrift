@@ -122,7 +122,8 @@ class Network(object):
 
             In a long-running server, this doesn't matter that much, but for bursty
             activity, like unit tests, it is important to close sockets so they are
-            quickly available for reuse.
+            quickly available for reuse. It is also important to un-register the
+            sockets in case the the selector object continues to be used.
 
             This method will not see quiesced or otherwise unregistered connections;
             this is not a problem, since listening sockets are the more important
@@ -131,10 +132,18 @@ class Network(object):
             This is unlikely to be used except in unit tests and, if one is being
             polite, at program termination.
         '''
+        r = []
         for k in self._selector.get_map().values():
+            s = k.fileobj
             try:
-                s = k.fileobj
                 s.close()
+            except Exception:
+                pass
+            else:
+                r.append(s)
+        for s in r:
+            try:
+                self._selector.unregister(s)
             except Exception:
                 pass
 
