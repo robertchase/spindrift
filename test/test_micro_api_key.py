@@ -1,4 +1,4 @@
-from spindrift.micro.micro import MICRO as micro
+from spindrift.micro.micro import Micro
 
 
 PORT = 12345
@@ -30,7 +30,7 @@ def test_ping():
     cfg = [
         'server.ping.api_key=%s' % KEY,
     ]
-    micro.load(s, cfg).start()
+    micro = Micro().load(s, cfg).start()
 
     c = micro.connection.pinger.get(on_ping_noauth, PATH, is_json=False)
     cc = micro.connection.pinger.get(on_ping, PATH, api_key=KEY, is_json=False)
