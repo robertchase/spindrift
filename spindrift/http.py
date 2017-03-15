@@ -178,7 +178,7 @@ class HTTPHandler(Handler):
 
     def on_data(self, data):
         self._data.extend(data)
-        while self._state() and self.is_open:
+        while self.is_open and self._state():
             pass
 
     def _on_http_error(self, message):
@@ -282,7 +282,7 @@ class HTTPHandler(Handler):
             else:
                 if self.is_inbound:  # server can't wait for close (might need to respond)
                     self._length = 0
-                    self._content()
+                    self._state = self._content
                 else:
                     self._on_close = self._on_end_at_close
                     self._state = self._nop
