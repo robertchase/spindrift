@@ -6,7 +6,6 @@ import spindrift.config as config_file
 from spindrift.micro.fsm_micro import create as create_machine
 import spindrift.micro.handler as handler
 from spindrift.network import Network
-from spindrift.rest.handler import RESTContext
 from spindrift.rest.mapper import RESTMapper
 from spindrift.timer import Timer
 
@@ -48,9 +47,12 @@ class Micro(object):
 
     def start(self):
         for connection in self.connection.values():
+            connection.micro = self
             connection.setup(self.config)
         for server in self.servers.values():
+            server.micro = self
             server.start(self.config)
+        return self
 
     def service(self):
         self.NETWORK.service(self.config.loop.sleep, self.config.loop.max_iterations)
@@ -58,9 +60,6 @@ class Micro(object):
 
     def close(self):
         self.NETWORK.close()
-
-
-MICRO = Micro()
 
 
 def to_args(line):
@@ -201,10 +200,10 @@ class Server(object):
         for route in self.routes:
             mapper.add(route.pattern, **route.methods)
 
-        context = RESTContext(mapper, config.api_key)
+        context = handler.InboundContext(mapper, self.micro, config.api_key)
 
         ssl = config.ssl
-        MICRO.NETWORK.add_server(config.port, handler.InboundHandler, context, ssl.is_active, ssl.keyfile, ssl.certfile)
+        self.micro.NETWORK.add_server(config.port, handler.InboundHandler, context, ssl.is_active, ssl.keyfile, ssl.certfile)
         log.info('listening on server.%s %sport %s', self.name, 'ssl ' if ssl.is_active else '', config.port)
 
 
@@ -235,9 +234,9 @@ def _method(method, connection, config, callback, path, headers=None, is_json=No
     wrapper = wrapper if wrapper is not None else connection.wrapper
     is_ssl = is_ssl if is_ssl is not None else connection.is_ssl
     timeout = timeout if timeout is not None else connection.timeout
-    timer = MICRO.TIMER.add(None, timeout * 1000)
-    ctx = handler.OutboundContext(callback, config, connection.url, method, connection.hostname, connection.path + path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs)
-    return MICRO.NETWORK.add_connection(connection.host, connection.port, handler.OutboundHandler, ctx, is_ssl=is_ssl)
+    timer = connection.micro.TIMER.add(None, timeout * 1000)
+    ctx = handler.OutboundContext(callback, connection.micro, config, connection.url, method, connection.hostname, connection.path + path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs)
+    return connection.micro.NETWORK.add_connection(connection.host, connection.port, handler.OutboundHandler, ctx, is_ssl=is_ssl)
 
 
 class Connections(dict):
@@ -260,7 +259,7 @@ class Connection(object):
 
     def __getattr__(self, name):
         if name in ('get', 'put', 'post'):
-            return functools.partial(_method, name.upper(), self, MICRO.config._get('connection.%s' % self.name))
+            return functools.partial(_method, name.upper(), self, self.micro.config._get('connection.%s' % self.name))
         raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
     def setup(self, config):
@@ -305,15 +304,16 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
     args = parser.parse_args()
 
-    MICRO.load(micro=args.micro, config=args.config if args.no_config is False else None)
+    micro = Micro()
+    micro.load(micro=args.micro, config=args.config if args.no_config is False else None)
 
     if args.config_only:
-        print(MICRO.config)
+        print(micro.config)
     else:
-        MICRO.start()
+        micro.start()
         while True:
             try:
-                MICRO.service()
+                micro.service()
             except KeyboardInterrupt:
                 log.info('Received shutdown command from keyboard')
                 break
