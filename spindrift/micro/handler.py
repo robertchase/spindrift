@@ -4,7 +4,7 @@ import traceback
 
 from spindrift.http import HTTPHandler
 from spindrift.import_utils import import_by_pathname
-from spindrift.rest.handler import RESTHandler
+from spindrift.rest.handler import RESTHandler, RESTContext
 
 
 import logging
@@ -13,8 +13,9 @@ log = logging.getLogger(__name__)
 
 class OutboundContext(object):
 
-    def __init__(self, callback, config, url, method, host, path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs):
+    def __init__(self, callback, micro, config, url, method, host, path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs):
         self.callback = callback
+        self.micro = micro
         self.config = config
         self.url = url + path
         self.method = method
@@ -143,6 +144,14 @@ class OutboundHandler(HTTPHandler):
         self.close('timeout')
 
 
+class InboundContext(RESTContext):
+
+    def __init__(self, mapper, micro, api_key=None):
+        super(InboundContext, self).__init__(mapper)
+        self.micro = micro
+        self.api_key = api_key
+
+
 class InboundHandler(RESTHandler):
 
     def on_open(self):
@@ -167,6 +176,10 @@ class InboundHandler(RESTHandler):
 
     def on_rest_data(self, *groups):
         log.info('request cid=%d, method=%s, resource=%s, query=%s, groups=%s', self.id, self.http_method, self.http_resource, self.http_query_string, groups)
+
+    def on_rest_request(self, request):
+        request.micro = self.context.micro
+        return request
 
     def on_rest_send(self, code, message, content, headers):
         log.debug('response cid=%d, code=%d, message=%s, headers=%s', self.id, code, message, headers)
