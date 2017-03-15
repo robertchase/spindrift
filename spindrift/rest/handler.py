@@ -10,9 +10,8 @@ log = logging.getLogger(__name__)
 
 class RESTContext(object):
 
-    def __init__(self, mapper, api_key=None):
+    def __init__(self, mapper):
         self.mapper = mapper
-        self.api_key = api_key
 
 
 class RESTHandler(http.HTTPHandler):
@@ -46,6 +45,7 @@ class RESTHandler(http.HTTPHandler):
         try:
             self.on_rest_data(self._groups)
             request = rest_request.RESTRequest(self)
+            request = self.on_rest_request(request)
             result = self._rest_handler(request, *self._groups)
             if request.is_delayed:
                 request.handler.quiesce()  # stop reading in case another request is pipelined (see on_send_complete)
@@ -62,6 +62,10 @@ class RESTHandler(http.HTTPHandler):
     def on_rest_data(self):
         ''' called before rest_handler execution '''
         pass
+
+    def on_rest_request(self, request):
+        ''' called after rest_request creation '''
+        return request
 
     def on_rest_no_match(self):
         ''' called when resource+method does not match anything in the mapper '''
