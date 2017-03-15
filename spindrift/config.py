@@ -101,8 +101,24 @@ class Config (object):
         item._value = value
 
     def _load(self, config):
+        '''
+            Load values into an already defined Config.
+
+            Parameters:
+                config - a str filename, a list, or a file-like object (that
+                         supports readlines)
+
+            Records (lines) are read from the config parameter and parsed as
+
+                <name>=<value>
+
+            where <name> matches a name specified in an earlier _define
+            call and <value> is the new value associated with that name.
+        '''
 
         if isinstance(config, str):
+            if not os.path.exists(config):
+                return
             config = open(config).readlines()
         elif isinstance(config, list):
             pass
