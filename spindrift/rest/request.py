@@ -54,7 +54,7 @@ class RESTRequest(object):
         self.is_delayed = False
 
     def __getattr__(self, name):
-        if name in ('http_headers', 'http_content', 'http_method', 'http_multipart', 'http_resource', 'http_query_string', 'http_query'):
+        if name in ('id', 'http_headers', 'http_content', 'http_method', 'http_multipart', 'http_resource', 'http_query_string', 'http_query'):
             return getattr(self.handler, name)
         raise AttributeError('no attribute %s' % name)
 
