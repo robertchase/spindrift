@@ -1,6 +1,7 @@
 import json
 import time
 import traceback
+import types
 
 from spindrift.http import HTTPHandler
 from spindrift.import_utils import import_by_pathname
@@ -71,7 +72,7 @@ class OutboundHandler(HTTPHandler):
         # create arguments for send
         context.send = {'method': context.method, 'host': context.host, 'resource': context.path, 'headers': context.headers, 'content': context.body}
 
-    def done(self, result, rc=1):
+    def done(self, result, rc=0):
         if self.is_done:
             return
         self.is_done = True
@@ -120,25 +121,22 @@ class OutboundHandler(HTTPHandler):
         super(OutboundHandler, self).on_data(data)
 
     def on_http_data(self):
+        status = self.http_status_code
         result = self.http_content
-        if self.http_status_code >= 200 and self.http_status_code <= 299:
-            rc = 0
+        if status >= 200 and status <= 299:
             if self.context.is_json and len(result):
                 try:
                     result = json.loads(result)
                 except Exception as e:
-                    rc = 1
-                    result = str(e)
+                    return self.done(str(e), 1)
         else:
-            rc = 1
-            if result == '':
-                result = self.http_status_message
+            return self.done(self.http_status_message if result == '' else result, 1)
 
-        if rc == 0 and self.context.wrapper:
+        if self.context.wrapper:
             wrap = import_by_pathname(self.context.wrapper)
             result = wrap(result)
 
-        self.done(result, rc)
+        self.done(result)
 
     def on_timeout(self):
         self.close('timeout')
@@ -150,6 +148,25 @@ class InboundContext(RESTContext):
         super(InboundContext, self).__init__(mapper)
         self.micro = micro
         self.api_key = api_key
+
+
+def defer(request, deferred_fn, immediate_fn, *args, **kwargs):
+
+    error_fn = kwargs.pop('error_fn', None)
+    error_msg = kwargs.pop('error_msg', None)
+
+    def on_defer(rc, result):
+        if rc == 0:
+            return deferred_fn(request, result)
+        if error_fn:
+            return error_fn(request, result)
+        if error_msg:
+            log.warning('error cid=%s: %s', request.id, result)
+            result = error_msg
+        request.respond({'error': result})
+
+    request.delay()
+    immediate_fn(on_defer, *args, **kwargs)
 
 
 class InboundHandler(RESTHandler):
@@ -178,7 +195,9 @@ class InboundHandler(RESTHandler):
         log.info('request cid=%d, method=%s, resource=%s, query=%s, groups=%s', self.id, self.http_method, self.http_resource, self.http_query_string, groups)
 
     def on_rest_request(self, request):
-        request.micro = self.context.micro
+        request.connection = self.context.micro.connection
+        request.defer = types.MethodType(defer, request)
+        request.context = type('stash', (object,), {})
         return request
 
     def on_rest_send(self, code, message, content, headers):
