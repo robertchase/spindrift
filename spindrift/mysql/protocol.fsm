@@ -1,0 +1,58 @@
+STATE init
+    EVENT packet greeting
+    EVENT query
+
+STATE greeting
+    ENTER parse_greeting
+    EVENT done authenticate
+    EVENT query
+    EVENT close close
+
+STATE authenticate
+    ENTER authenticate
+    EVENT sent
+    EVENT packet
+        ACTION parse_auth_response
+    EVENT done connected
+    EVENT password password
+    EVENT query
+    EVENT close close
+
+STATE password
+    ENTER password
+    EVENT sent
+    EVENT packet
+        ACTION parse_password_response
+    EVENT done connected
+    EVENT query
+    EVENT close close
+
+STATE connected
+    ENTER connected
+    EVENT query
+        ACTION query
+    EVENT sent query
+    EVENT close close
+
+STATE query
+    ENTER init_query
+    EVENT packet
+        ACTION check_query_response
+    EVENT done query_descriptors
+    EVENT close close
+
+STATE query_descriptors
+    EVENT packet
+        ACTION read_descriptor_packet
+    EVENT eof query_fields
+    EVENT close close
+
+STATE query_fields
+    EVENT packet
+        ACTION read_data_packet
+    EVENT eof close
+        ACTION query_complete
+    EVENT close close
+
+STATE close
+    ENTER close
