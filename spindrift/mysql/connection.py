@@ -7,12 +7,21 @@ import spindrift.network as network
 
 class MysqlContext(object):
 
-    def __init__(self, user=None, pswd=None, db=None, host=None, port=3306):
+    def __init__(self, user=None, pswd=None, db=None, host=None, port=3306,
+                 names=False,  # return result as tuple of (column_names, result_set)
+                 trace=False   # trace FSM to stdout
+                 ):
         self.user = user
         self.pswd = '' if pswd is None else pswd
         self.db = db
         self.host = host
         self.port = port
+        self.names = names
+        self.trace = self.trace if trace else None
+
+    @staticmethod
+    def trace(s, e, d, i):
+        print('s=%s,e=%s,is_default=%s,is_internal=%s' % (s, e, d, i))
 
 
 class MysqlHandler(network.Handler):

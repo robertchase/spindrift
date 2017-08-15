@@ -33,7 +33,8 @@ class Protocol(object):
             dump_packet=self.dump_packet,
         )
         self.fsm.state = 'init'
-        self.fsm.trace = self.trace
+        if self.connection.context.trace:
+            self.fsm.trace = self.connection.context.trace
 
         self.packet = packet.Packet()
 
@@ -45,10 +46,6 @@ class Protocol(object):
 
     def dump_packet(self):
         self.packet.dump()
-
-    @staticmethod
-    def trace(s, e, d, i):
-        print('s=%s,e=%s,is_default=%s,is_internal=%s' % (s, e, d, i))
 
     def handle(self, data):
         if self.packet.handle(data):
@@ -120,6 +117,7 @@ class Protocol(object):
         if converter is converters.through:
             converter = None
         self.converters.append((f.name, encoding, converter))
+        self.fields.append('%s.%s' % (f.table_name, f.name))
 
     def act_read_data_packet(self):
         if self._cls is None:
@@ -152,7 +150,10 @@ class Protocol(object):
         self.result.append(self._cls(**row))
 
     def act_query_complete(self):
-        self._callback(0, tuple(self.result))
+        result = tuple(self.result)
+        if self.connection.context.names:
+            result = (tuple(self.fields), result)
+        self._callback(0, result)
         self._callback = None
         self._cls = None
 
@@ -161,6 +162,7 @@ class Protocol(object):
         return 'done'
 
     def act_init_query(self):
+        self.fields = []
         self.converters = []
         self.result = []
 
