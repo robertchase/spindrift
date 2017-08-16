@@ -11,7 +11,8 @@ parser.add_argument('--pswd', '-p', default='')
 parser.add_argument('--database', '-d')
 parser.add_argument('--host', '-H', default='mysql')
 parser.add_argument('--dict', action='store_true', default=False)
-parser.add_argument('--names', action='store_true', default=False)
+parser.add_argument('--column', action='store_true', default=False)
+parser.add_argument('--table', action='store_true', default=False)
 parser.add_argument('--trace', action='store_true', default=False)
 parser.add_argument('query', nargs='+')
 
@@ -33,7 +34,11 @@ def on_query(rc, result):
     if rc != 0:
         raise Exception(result)
     if args.dict:
-        result = dumps(tuple([dict(zip(result[0], r)) for r in result[1]]), cls=_decoder, indent=4)
+        result = dumps(
+            tuple([dict(zip(result[0], r)) for r in result[1]]),
+            cls=_decoder,
+            indent=4
+        )
     print(result)
 
 
@@ -42,7 +47,8 @@ ctx = mysql.MysqlContext(
     pswd=args.pswd,
     db=args.database,
     host=args.host,
-    names=args.names or args.dict,
+    column=args.column or args.dict,
+    table=args.table,
     trace=args.trace,
 )
 n = network.Network()

@@ -117,7 +117,7 @@ class Protocol(object):
         if converter is converters.through:
             converter = None
         self.converters.append((f.name, encoding, converter))
-        self.fields.append('%s.%s' % (f.table_name, f.name))
+        self.fields.append('%s.%s' % (f.table_name, f.name) if self.connection.context.table else f.name)
 
     def act_read_data_packet(self):
         if self._cls is None:
@@ -151,7 +151,7 @@ class Protocol(object):
 
     def act_query_complete(self):
         result = tuple(self.result)
-        if self.connection.context.names:
+        if self.connection.context.column:
             result = (tuple(self.fields), result)
         self._callback(0, result)
         self._callback = None
