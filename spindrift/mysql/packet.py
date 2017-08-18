@@ -1,7 +1,7 @@
 import struct
 
 import spindrift.mysql.charset as charset
-from spindrift.mysql.constants import CLIENT
+from spindrift.mysql.constants import CLIENT, SERVER_STATUS
 import spindrift.mysql.util as util
 
 
@@ -180,6 +180,10 @@ class Greeting(Packet):
     def __init__(self, data):
         self.data = data
         self.parse()
+
+    @property
+    def autocommit(self):
+        return bool(self.server_status & SERVER_STATUS.SERVER_STATUS_AUTOCOMMIT)
 
     def parse(self):
         data = self.data

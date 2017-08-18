@@ -42,6 +42,10 @@ def on_query(rc, result):
     print(result)
 
 
+def trace(s, e, d, i):
+    print('s=%s,e=%s,is_default=%s,is_internal=%s' % (s, e, d, i))
+
+
 ctx = mysql.MysqlContext(
     user=args.user,
     pswd=args.pswd,
@@ -49,7 +53,7 @@ ctx = mysql.MysqlContext(
     host=args.host,
     column=args.column or args.dict,
     table=args.table,
-    trace=args.trace,
+    fsm_trace=trace if args.trace else None,
 )
 n = network.Network()
 c = n.add_connection(ctx.host, ctx.port, mysql.MysqlHandler, ctx)

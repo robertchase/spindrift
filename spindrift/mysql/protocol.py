@@ -16,6 +16,7 @@ class Protocol(object):
         self.connection = connection
         self.fsm = fsm.create(
             authenticate=self.act_authenticate,
+            autocommit=self.act_autocommit,
             check_query_response=self.act_check_query_response,
             close=self.act_close,
             connected=self.act_connected,
@@ -44,12 +45,22 @@ class Protocol(object):
         self._callback = None
         self._query = None
 
+    @property
+    def context(self):
+        return self.connection.context
+
     def dump_packet(self):
         self.packet.dump()
 
     def handle(self, data):
         if self.packet.handle(data):
-            if not self.fsm.handle('eof' if self.packet.is_eof else 'packet'):
+            if self.packet.is_ok:
+                event = 'ok'
+            elif self.packet.is_eof:
+                event = 'eof'
+            else:
+                event = 'packet'
+            if not self.fsm.handle(event):
                 self.connection.close('error handling event')
             else:
                 self.packet.reset()
@@ -77,12 +88,14 @@ class Protocol(object):
 
     def act_query(self):
         if self._callback and self._query:
-            self.packet.reset(0)
             self._execute_command(COMMAND.COM_QUERY, self._query)
             self._query = None
             self.fsm.handle('sent')
 
     def _execute_command(self, command, sql):
+        self.packet.reset(0)
+        if isinstance(sql, compat.text_type):
+            sql = sql.encode(self.encoding)
         packet_size = min(packet.MAX_PACKET_LEN, len(sql) + 1)  # +1 is for command
         prelude = struct.pack('<iB', packet_size, command)
         p = prelude + sql[:packet_size-1]
@@ -228,6 +241,12 @@ class Protocol(object):
 
     def act_dump_greeting(self):
         self.handshake.dump()
+
+    def act_autocommit(self):
+        if self.context.autocommit == self.handshake.autocommit:
+            return 'ok'
+        sql = 'SET AUTOCOMMIT = %s' % (1 if self.context.autocommit else 0)
+        self._execute_command(COMMAND.COM_QUERY, sql)
 
     def act_close(self):
         self.connection.close('state-machine triggered close')

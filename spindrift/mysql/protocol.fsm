@@ -11,9 +11,9 @@ STATE greeting
 STATE authenticate
     ENTER authenticate
     EVENT sent
-    EVENT packet
+    EVENT ok
         ACTION parse_auth_response
-    EVENT done connected
+    EVENT done autocommit
     EVENT password password
     EVENT query
     EVENT close close
@@ -23,8 +23,13 @@ STATE password
     EVENT sent
     EVENT packet
         ACTION parse_password_response
-    EVENT done connected
+    EVENT done autocommit
     EVENT query
+    EVENT close close
+
+STATE autocommit
+    ENTER autocommit
+    EVENT ok connected
     EVENT close close
 
 STATE connected
