@@ -14,6 +14,11 @@ class Network(object):
     def __init__(self):
         self._id = 0
         self._selector = selectors.DefaultSelector()
+        self._is_open = True
+
+    @property
+    def is_open(self):
+        return self._is_open
 
     def add_server(self, port, handler, context=None, is_ssl=False, ssl_certfile=None, ssl_keyfile=None, ssl_password=None):
         ''' Add a Server (listening) socket
@@ -66,9 +71,9 @@ class Network(object):
             ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
             if ssl_certfile:
                 ssl_ctx.load_cert_chain(ssl_certfile, ssl_keyfile, ssl_password)
-        l = Listener(s, self, context=context, handler=handler, ssl_ctx=ssl_ctx if is_ssl else None)
-        self._register(s, selectors.EVENT_READ, l._do_accept)
-        return l
+        listener = Listener(s, self, context=context, handler=handler, ssl_ctx=ssl_ctx if is_ssl else None)
+        self._register(s, selectors.EVENT_READ, listener._do_accept)
+        return listener
 
     def add_connection(self, host, port, handler, context=None, is_ssl=False):
         ''' Add a Client (outbound) socket
@@ -132,6 +137,9 @@ class Network(object):
             This is unlikely to be used except in unit tests and, if one is being
             polite, at program termination.
         '''
+        if not self.is_open:
+            return
+        self._is_open = False
         r = []
         for k in self._selector.get_map().values():
             s = k.fileobj
@@ -535,7 +543,7 @@ class Handler(object):
             self.close('logic error in handler')
             return
         try:
-            l = self._sock.send(data)
+            count = self._sock.send(data)
         except ssl.SSLWantReadError:
             self._register(selectors.EVENT_READ, self._do_write)
         except ssl.SSLWantWriteError:
@@ -551,8 +559,8 @@ class Handler(object):
         except Exception as e:
             self.close('send error on socket: %s' % str(e))
         else:
-            self.tx_count += l
-            if l == len(data):
+            self.tx_count += count
+            if count == len(data):
                 self._sending = b''
                 self._register(selectors.EVENT_READ, self._do_read)
                 self.on_send_complete()
@@ -561,7 +569,7 @@ class Handler(object):
                     we couldn't send all the data. buffer the remainder in self._sending and start
                     waiting for the socket to be writable again (EVENT_WRITE).
                 '''
-                self._sending = data[l:]
+                self._sending = data[count:]
                 self._register(selectors.EVENT_WRITE, self._do_write)
 
 

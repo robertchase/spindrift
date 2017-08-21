@@ -11,29 +11,28 @@ class MysqlContext(object):
                  column=False,      # return result as tuple of (column_names, result_set)
                  table=False,       # prepend 'table_name.' to column_names
                  fsm_trace=None,    # trace FSM events fn(state, event, is_default, is_internal)
+                 sql_trace=None,    # trace sql commands fn(sql)
                  autocommit=False,  # autocommit (True/False)
+                 isolation=None,    # session isolation level
                  ):
         self.user = user
         self.pswd = '' if pswd is None else pswd
         self.db = db
-        self.host = host
-        self.port = port
         self.column = column
         self.table = table
-        self.trace = fsm_trace
+        self.fsm_trace = fsm_trace
+        self.sql_trace = sql_trace
         self.autocommit = autocommit
-
-    @staticmethod
-    def trace(s, e, d, i):
-        print('s=%s,e=%s,is_default=%s,is_internal=%s' % (s, e, d, i))
+        self.isolation = isolation
 
 
 class MysqlHandler(network.Handler):
 
     def on_init(self):
-        self.protocol = Protocol(self)
-        self._cursor = Cursor(self.protocol)
+        self._protocol = Protocol(self)
+        self._cursor = Cursor(self._protocol)
 
+    @property
     def cursor(self):
         return self._cursor
 
@@ -56,4 +55,4 @@ class MysqlHandler(network.Handler):
         print('connected, t=%s' % (time.perf_counter() - self.t_init))
 
     def on_data(self, data):
-        self.protocol.handle(data)
+        self._protocol.handle(data)

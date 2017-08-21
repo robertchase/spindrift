@@ -266,3 +266,27 @@ class FieldDescriptorPacket(Packet):
         self.name = self.read_length_coded_string().decode(encoding)
         self.org_name = self.read_length_coded_string().decode(encoding)
         self.charsetnr, self.length, self.type_code, self.flags, self.scale = (self.read_struct('<xHIBHBxx'))
+
+
+class OKPacket(Packet):
+
+    def __init__(self, data, encoding):
+        super(OKPacket, self).__init__(data)
+        self.parse(encoding)
+
+    def __repr__(self):
+        return 'rows=%s, id=%s, status=%s, warning=%s, message=%s' % (
+            self.affected_rows,
+            self.insert_id,
+            self.server_status,
+            self.warning_count,
+            self.message,
+        )
+
+    def parse(self, encoding):
+        self._position += 1
+        self.affected_rows = self.read_length_encoded_integer()
+        self.insert_id = self.read_length_encoded_integer()
+        self.server_status, self.warning_count = self.read_struct('<HH')
+        self.message = self.read_all()
+        self.has_next = self.server_status & SERVER_STATUS.SERVER_MORE_RESULTS_EXISTS

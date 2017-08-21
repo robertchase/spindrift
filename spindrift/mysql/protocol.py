@@ -22,20 +22,21 @@ class Protocol(object):
             connected=self.act_connected,
             dump_greeting=self.act_dump_greeting,
             init_query=self.act_init_query,
+            isolation=self.act_isolation,
             parse_auth_response=self.act_parse_auth_response,
             parse_greeting=self.act_parse_greeting,
-            parse_password_response=self.act_parse_password_response,
-            password=self.act_password,
             query=self.act_query,
+            query_complete=self.act_query_complete,
             read_data_packet=self.act_read_data_packet,
             read_descriptor_packet=self.act_read_descriptor_packet,
-            query_complete=self.act_query_complete,
+            transaction=self.act_transaction,
+            transaction_end=self.act_transaction_end,
 
             dump_packet=self.dump_packet,
         )
         self.fsm.state = 'init'
-        if self.connection.context.trace:
-            self.fsm.trace = self.connection.context.trace
+        if self.connection.context.fsm_trace:
+            self.fsm.trace = self.connection.context.fsm_trace
 
         self.packet = packet.Packet()
 
@@ -44,10 +45,29 @@ class Protocol(object):
 
         self._callback = None
         self._query = None
+        self._query_status = None
+
+        self._transaction_start = False
+        self._transaction_end = None
 
     @property
     def context(self):
         return self.connection.context
+
+    def close(self):
+        self.connection.close()
+
+    @property
+    def is_open(self):
+        return self.connection.is_open
+
+    @property
+    def lastrowid(self):
+        self._query_status.insert_id
+
+    @property
+    def rows_affected(self):
+        return self._query_status.affected_rows
 
     def dump_packet(self):
         self.packet.dump()
@@ -55,6 +75,8 @@ class Protocol(object):
     def handle(self, data):
         if self.packet.handle(data):
             if self.packet.is_ok:
+                self._ok = packet.OKPacket(self.packet.data, self.encoding)
+                print('ok', self._ok)
                 event = 'ok'
             elif self.packet.is_eof:
                 event = 'eof'
@@ -74,25 +96,30 @@ class Protocol(object):
         return converters.escape_item(obj, self.charset, mapping=mapping)
 
     def _escape_string(self, s):
-        if (self.server_status & SERVER_STATUS.SERVER_STATUS_NO_BACKSLASH_ESCAPES):
+        if (self.handshake.server_status & SERVER_STATUS.SERVER_STATUS_NO_BACKSLASH_ESCAPES):
             return s.replace("'", "''")
-        return converters._escape_string(s)
+        return converters.escape_string(s)
 
-    def query(self, callback, sql, cls=None):
+    def query(self, callback, sql, transaction_start=False, transaction_end=None, cls=None):
         self._callback = callback
         self._cls = cls
-        if isinstance(sql, compat.text_type):
-            sql = sql.encode(self.encoding, 'surrogateescape')
         self._query = sql
+        if not self.context.autocommit:
+            self._transaction_start = transaction_start
+            self._transaction_end = transaction_end
         self.fsm.handle('query')
 
     def act_query(self):
         if self._callback and self._query:
+            if self._transaction_start:
+                return 'transaction'
             self._execute_command(COMMAND.COM_QUERY, self._query)
             self._query = None
             self.fsm.handle('sent')
 
     def _execute_command(self, command, sql):
+        if self.connection.context.sql_trace:
+            self.connection.context.sql_trace(sql)
         self.packet.reset(0)
         if isinstance(sql, compat.text_type):
             sql = sql.encode(self.encoding)
@@ -111,6 +138,18 @@ class Protocol(object):
             sql = sql[packet_size:]
             if not sql and packet_size < packet.MAX_PACKET_LEN:
                 break
+
+    def act_transaction(self):
+        self._transaction_start = False
+        self._execute_command(COMMAND.COM_QUERY, 'START TRANSACTION')
+
+    def act_transaction_end(self):
+        self._query_status = self._ok
+        if self._transaction_end:
+            self._execute_command(COMMAND.COM_QUERY, self._transaction_end)
+            self._transaction_end = None
+        else:
+            return 'ok'
 
     def act_read_descriptor_packet(self):
         f = packet.FieldDescriptorPacket(self.packet.data, self.encoding)
@@ -166,9 +205,10 @@ class Protocol(object):
         result = tuple(self.result)
         if self.connection.context.column:
             result = (tuple(self.fields), result)
-        self._callback(0, result)
+        callback = self._callback
         self._callback = None
         self._cls = None
+        callback(0, result)
 
     def act_parse_greeting(self):
         self.handshake = packet.Greeting(self.packet.data)
@@ -215,10 +255,7 @@ class Protocol(object):
         if auth_packet.data[0:1] == b'\xfe':
             auth_packet.read_uint8()  # advance
             plugin_name = auth_packet.read_string()
-            if self.handshake.server_capabilities & CLIENT.PLUGIN_AUTH and plugin_name == b'mysql_native_password':
-                return 'password'
-            else:
-                raise Exception("Authentication plugin '%s' not configured" % plugin_name)
+            raise Exception("Authentication plugin '%s' not configured" % plugin_name)
         else:
             return 'done'
 
@@ -230,15 +267,6 @@ class Protocol(object):
             self.field_count = self.packet.read_length_encoded_integer()
             return 'done'
 
-    def act_password(self):
-        data = util.scramble(self.connection.pswd.encode('latin1'), self.packet.read_all())  # wrong scramble
-        self.write_packet(data)
-
-    def act_parse_password_response(self):
-        if self.packet.is_ok:
-            return 'done'
-        return 'close'
-
     def act_dump_greeting(self):
         self.handshake.dump()
 
@@ -246,6 +274,12 @@ class Protocol(object):
         if self.context.autocommit == self.handshake.autocommit:
             return 'ok'
         sql = 'SET AUTOCOMMIT = %s' % (1 if self.context.autocommit else 0)
+        self._execute_command(COMMAND.COM_QUERY, sql)
+
+    def act_isolation(self):
+        if self.context.isolation is None:
+            return 'ok'
+        sql = 'SET SESSION TRANSACTION ISOLATION LEVEL %s' % self.context.isolation
         self._execute_command(COMMAND.COM_QUERY, sql)
 
     def act_close(self):

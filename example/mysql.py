@@ -5,16 +5,19 @@ import spindrift.network as network
 import spindrift.mysql.connection as mysql
 
 
-parser = argparse.ArgumentParser(description='Run a mysql command')
+parser = argparse.ArgumentParser(description='Run a mysql command. Query returns tuple of row-tuples.')
 parser.add_argument('--user', '-u')
 parser.add_argument('--pswd', '-p', default='')
 parser.add_argument('--database', '-d')
 parser.add_argument('--host', '-H', default='mysql')
-parser.add_argument('--dict', action='store_true', default=False)
-parser.add_argument('--column', action='store_true', default=False)
-parser.add_argument('--table', action='store_true', default=False)
-parser.add_argument('--trace', action='store_true', default=False)
-parser.add_argument('query', nargs='+')
+parser.add_argument('--port', type=int, default=3306)
+parser.add_argument('--transactions', action='store_true', default=False, help='turn autocommit off (default on)')
+parser.add_argument('--dict', action='store_true', default=False, help='display query output as jsonified dict')
+parser.add_argument('--column', action='store_true', default=False, help='return results as tuple of ((column_names,),(rows,)). overridden by --dict')
+parser.add_argument('--table', action='store_true', default=False, help='add table name to --column or --dict')
+parser.add_argument('--isolation', help='set isolation level (eg, "repeatable read")')
+parser.add_argument('--trace', action='store_true', default=False, help='trace fsm and sql events')
+parser.add_argument('query', nargs='+', help='sql statement to execute')
 
 args = parser.parse_args()
 
@@ -40,25 +43,32 @@ def on_query(rc, result):
             indent=4
         )
     print(result)
+    cursor.close()
 
 
 def trace(s, e, d, i):
     print('s=%s,e=%s,is_default=%s,is_internal=%s' % (s, e, d, i))
 
 
+def sql_trace(sql):
+    print('sql:', sql)
+
+
 ctx = mysql.MysqlContext(
     user=args.user,
     pswd=args.pswd,
     db=args.database,
-    host=args.host,
+    autocommit=not args.transactions,
     column=args.column or args.dict,
     table=args.table,
+    isolation=args.isolation,
     fsm_trace=trace if args.trace else None,
+    sql_trace=sql_trace if args.trace else None,
 )
 n = network.Network()
-c = n.add_connection(ctx.host, ctx.port, mysql.MysqlHandler, ctx)
-c.cursor().execute(on_query, ' '.join(args.query))
+cursor = n.add_connection(args.host, args.port, mysql.MysqlHandler, ctx).cursor
+cursor.execute(on_query, ' '.join(args.query))
 
-while c.is_open:
+while cursor.is_open:
     n.service()
 n.close()

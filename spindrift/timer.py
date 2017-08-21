@@ -116,7 +116,7 @@ class SimpleTimer(object):
         return self._expiration < other._expiration
 
     def _calc_expiration(self):
-        return time.time() + (self._duration / 1000.0)
+        return time.time() + (self._duration / 1000)
 
     @property
     def is_expired(self):

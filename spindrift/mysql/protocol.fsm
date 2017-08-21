@@ -14,27 +14,30 @@ STATE authenticate
     EVENT ok
         ACTION parse_auth_response
     EVENT done autocommit
-    EVENT password password
-    EVENT query
-    EVENT close close
-
-STATE password
-    ENTER password
-    EVENT sent
-    EVENT packet
-        ACTION parse_password_response
-    EVENT done autocommit
     EVENT query
     EVENT close close
 
 STATE autocommit
     ENTER autocommit
+    EVENT ok isolation
+    EVENT close close
+
+STATE isolation
+    ENTER isolation
     EVENT ok connected
     EVENT close close
 
 STATE connected
     ENTER connected
     EVENT query
+        ACTION query
+    EVENT transaction transaction
+    EVENT sent query
+    EVENT close close
+
+STATE transaction
+    ENTER transaction
+    EVENT ok
         ACTION query
     EVENT sent query
     EVENT close close
@@ -43,8 +46,14 @@ STATE query
     ENTER init_query
     EVENT packet
         ACTION check_query_response
+    EVENT ok transaction_end
+        ACTION transaction_end
     EVENT done query_descriptors
     EVENT close close
+
+STATE transaction_end
+    EVENT ok connected
+        ACTION query_complete
 
 STATE query_descriptors
     EVENT packet
@@ -55,8 +64,11 @@ STATE query_descriptors
 STATE query_fields
     EVENT packet
         ACTION read_data_packet
-    EVENT eof close
+    EVENT eof
+        ACTION transaction_end
+    EVENT ok connected
         ACTION query_complete
+    EVENT query
     EVENT close close
 
 STATE close
