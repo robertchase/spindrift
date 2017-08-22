@@ -59,7 +59,7 @@ class RESTHandler(http.HTTPHandler):
             self._rest_send(**kwargs)
             self.close('exception encountered')
 
-    def on_rest_data(self):
+    def on_rest_data(self, groups):
         ''' called before rest_handler execution '''
         pass
 
