@@ -90,11 +90,19 @@ class RESTRequest(object):
         self.handler = handler
         self.is_delayed = False
         self.response = None
+        self.is_done = False
+        self._cleanup = []
 
     def __getattr__(self, name):
         if name in ('id', 'http_headers', 'http_content', 'http_method', 'http_multipart', 'http_resource', 'http_query_string', 'http_query'):
             return getattr(self.handler, name)
         super(RESTRequest, self).__getattribute__(name)
+
+    def __setattr__(self, name, value):
+        if name == 'cleanup':
+            self._cleanup.append(value)
+        else:
+            super(RESTRequest, self).__setattr__(name, value)
 
     @property
     def connection_id(self):
@@ -110,11 +118,15 @@ class RESTRequest(object):
             self._respond(*args, **kwargs)
 
     def _respond(self, code=200, content='', headers=None, message=None, content_type=None):
-        close = self.handler.http_headers.get('connection') == 'close'
-        self.is_delayed = True  # prevent second response on handler return
-        self.handler._rest_send(code, message, content, content_type, headers, close)
+        if not self.is_done:
+            self.is_done = True
+            close = self.handler.http_headers.get('connection') == 'close'
+            self.is_delayed = True  # prevent second response on handler return
+            self.handler._rest_send(code, message, content, content_type, headers, close)
+            for cleanup in self._cleanup[::-1]:
+                cleanup()
 
-    def call(self, fn, args=None, kwargs=None, on_success=None, on_error=None, on_none=None, on_none_404=False):
+    def call(self, fn, args=None, kwargs=None, on_success=None, on_success_code=None, on_error=None, on_none=None, on_none_404=False):
         """
         Call an async function.
 
@@ -149,7 +161,10 @@ class RESTRequest(object):
         """
 
         def cb(rc, result):
-            _callback(self, rc, result, on_success, on_error, on_none, on_none_404)
+            if rc == 0:
+                _callback(self, result, on_success, on_success_code, on_none, on_none_404)
+            else:
+                _callback_error(self, result, on_error)
 
         if args is None:
             args = ()
@@ -160,6 +175,7 @@ class RESTRequest(object):
 
         self.delay()
 
+        self.handler.on_request_call(self, fn, args, kwargs)
         fn(cb, *args, **kwargs)
 
     @property
@@ -177,31 +193,34 @@ class RESTRequest(object):
         return self._json
 
 
-def _callback(request, rc, result, on_success, on_error, on_none, on_none_404):
-    if rc == 0:
-        if result is None and on_none_404:
-            request.respond(404)
-        elif result is None and on_none:
-            try:
-                on_none(request)
-            except Exception:
-                log.exception('running on_none callback')
-                request.respond(500)
-        elif on_success:
-            try:
-                on_success(request, result)
-            except Exception:
-                log.exception('running on_success callback')
-                request.respond(500)
-        else:
-            request.respond(200, request.response or result)
-    else:
-        if on_error:
-            try:
-                on_error(request, result)
-            except Exception:
-                log.exception('running on_error callback: %s', result)
-                request.respond(500)
-        else:
-            log.warning('cid=%s, error: %s', request.id, result)
+def _callback(request, result, on_success, on_success_code, on_none, on_none_404):
+    if result is None and on_none_404:
+        request.respond(404)
+    elif result is None and on_none:
+        try:
+            on_none(request, None)
+        except Exception:
+            log.exception('running on_none callback')
             request.respond(500)
+    elif on_success_code:
+        request.respond(on_success_code)
+    elif on_success:
+        try:
+            on_success(request, result)
+        except Exception:
+            log.exception('running on_success callback')
+            request.respond(500)
+    else:
+        request.respond(200, request.response or result)
+
+
+def _callback_error(request, result, on_error):
+    if on_error:
+        try:
+            on_error(request, result)
+        except Exception:
+            log.exception('running on_error callback: %s', result)
+            request.respond(500)
+    else:
+        log.warning('cid=%s, error: %s', request.id, result)
+        request.respond(500)

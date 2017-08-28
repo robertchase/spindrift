@@ -67,6 +67,10 @@ class RESTHandler(http.HTTPHandler):
         ''' called after rest_request creation '''
         return request
 
+    def on_request_call(self, kwargs):
+        ''' chance to amend kwargs on request.call '''
+        pass
+
     def on_rest_no_match(self):
         ''' called when resource+method does not match anything in the mapper '''
         pass
