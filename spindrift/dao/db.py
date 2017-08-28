@@ -41,6 +41,7 @@ class _DB(object):
                 sql_trace=None,    # callback for sql commands
                 autocommit=False,  # autocommit (True/False)
                 isolation=None,    # session isolation level ("read committed", etc)
+                handler=None,      # alternate handler for mysql connection
             ):
         self.network = network
         self.host = host
@@ -53,6 +54,7 @@ class _DB(object):
             fsm_trace=fsm_trace,
             autocommit=autocommit,
             isolation=isolation,
+            handler=handler or connection.MysqlHandler,
         )
 
     @property
@@ -60,7 +62,7 @@ class _DB(object):
         return self.network.add_connection(
             self.host,
             self.port,
-            connection.MysqlHandler,
+            self.context.handler,
             context=self.context,
         )
 
