@@ -36,6 +36,7 @@ class DAO(object):
     # FIELDS = ()
     CALCULATED_FIELDS = {}
     PROPERTIES = ()
+    NULLABLE = ()
     DEFAULT = {}
     JSON_FIELDS = ()
     FOREIGN = {}  # name: 'class path'
@@ -198,7 +199,7 @@ class DAO(object):
             return None
         return f
 
-    def save(self, callback, insert=False, cursor=None):
+    def save(self, callback, insert=False, cursor=None, start_transaction=False, commit=False):
         cache = {}
         for n in self.JSON_FIELDS:
             v = cache[n] = getattr(self, n)
@@ -214,13 +215,14 @@ class DAO(object):
 
         if not cursor:
             cursor = DB.cursor
-        self._save(on_save, insert, cursor=cursor)
+        self._save(on_save, insert, cursor, start_transaction, commit)
 
-    def _save(self, callback, insert, cursor):
+    def _save(self, callback, insert, cursor, start_transaction, commit):
         if insert or not hasattr(self, 'id'):
             new = True
             self.before_insert()
             fields = self._non_pk_fields if not insert else self.FIELDS
+            fields = [f for f in fields if not (f in self.NULLABLE and self.__dict__[f] is None)]
             stmt = 'INSERT INTO ' + self.FULL_TABLE_NAME() + ' (' + ','.join('`' + f + '`' for f in fields) + ') VALUES (' + ','.join('%s' for n in range(len(fields))) + ')'
             args = [self.__dict__[f] for f in fields]
         else:
@@ -249,7 +251,9 @@ class DAO(object):
 
         self._stmt = stmt
         self._executed_stmt = None
-        cursor.transaction().execute(on_save, stmt, args)
+        if start_transaction is False and commit is False:
+            cursor.transaction()
+        cursor.execute(on_save, stmt, args, start_transaction=start_transaction, commit=commit)
 
     def on_json_save(self, name, obj):
         return obj
