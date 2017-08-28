@@ -52,8 +52,10 @@ STATE query
     EVENT close close
 
 STATE transaction_end
-    EVENT ok connected
+    EVENT ok
         ACTION query_complete
+    EVENT done connected
+    EVENT close close
 
 STATE query_descriptors
     EVENT packet
@@ -66,10 +68,12 @@ STATE query_fields
         ACTION read_data_packet
     EVENT eof
         ACTION transaction_end
-    EVENT ok connected
+    EVENT ok
         ACTION query_complete
+    EVENT done connected
     EVENT query
     EVENT close close
 
 STATE close
     ENTER close
+    EVENT done

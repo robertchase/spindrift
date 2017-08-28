@@ -28,13 +28,19 @@ class Packet(object):
         self._error = None
         self._position = 0
 
-    def reset(self, number=None):
-        self.data = b''
-        self._position = 0
-        if number is not None:
-            self.number = 0
+    def __repr__(self):
+        return 'n=%s, d=%s' % (self.number, self.data)
+
+    def reset(self, sequence):
+        self.clear()
+        if sequence is not None:
+            self.number = sequence
         else:
             self.increment()
+
+    def clear(self):
+        self.data = b''
+        self._position = 0
 
     def increment(self):
         self.number = (self.number + 1) % 256

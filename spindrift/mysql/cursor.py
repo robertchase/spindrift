@@ -4,7 +4,7 @@ class Cursor(object):
         self.protocol = protocol
 
         self._transaction_depth = 0
-        self._transaction_start = False
+        self._start_transaction = False
         self._transaction_commit = False
         self._transaction_rollback = False
 
@@ -18,7 +18,7 @@ class Cursor(object):
     def start_transaction(self):
         self._transaction_depth += 1
         if self._transaction_depth == 1:
-            self._transaction_start = True
+            self._start_transaction = True
         return self
 
     def commit(self):
@@ -55,26 +55,20 @@ class Cursor(object):
         else:
             return self.protocol.escape(args)
 
-    def execute(self, callback, query, args=None, cls=None):
-        """Execute a query
-
-        :param str query: Query to execute.
-
-        :param args: parameters used with query. (optional)
-        :type args: tuple, list or dict
-
-        :param cls: class to instantiate with each query row
-
-        If args is a list or tuple, %s can be used as a placeholder in the query.
-        If args is a dict, %(name)s can be used as a placeholder in the query.
-        """
+    def execute(self, callback, query, args=None, start_transaction=False, commit=False, cls=None):
+        """ Execute a query """
         self._before_executed = query
         if args is not None:
             query = query % self._escape_args(args)
         self._executed = query
 
-        if self._transaction_start:
-            self._transaction_start = False
+        if start_transaction:
+            self.start_transaction()
+        if commit:
+            self.commit()
+
+        if self._start_transaction:
+            self._start_transaction = False
             start = True
         else:
             start = False
@@ -88,4 +82,4 @@ class Cursor(object):
         else:
             end = None
 
-        self.protocol.query(callback, query, cls=cls, transaction_start=start, transaction_end=end)
+        self.protocol.query(callback, query, cls=cls, start_transaction=start, end_transaction=end)

@@ -3,7 +3,8 @@ import struct
 import spindrift.mysql._compat as compat
 import spindrift.mysql.converters as converters
 import spindrift.mysql.charset as charset
-from spindrift.mysql.constants import CLIENT, COMMAND, FIELD_TYPE, SERVER_STATUS
+# from spindrift.mysql.constants import CLIENT, COMMAND, FIELD_TYPE, SERVER_STATUS
+from spindrift.mysql.constants import CLIENT, COMMAND, FIELD_TYPE
 import spindrift.mysql.fsm_protocol as fsm
 import spindrift.mysql.util as util
 
@@ -63,7 +64,7 @@ class Protocol(object):
 
     @property
     def lastrowid(self):
-        self._query_status.insert_id
+        return self._query_status.insert_id
 
     @property
     def rows_affected(self):
@@ -74,21 +75,21 @@ class Protocol(object):
 
     def handle(self, data):
         if self.packet.handle(data):
+            self.packet.increment()
             if self.packet.is_ok:
                 self._ok = packet.OKPacket(self.packet.data, self.encoding)
-                print('ok', self._ok)
                 event = 'ok'
             elif self.packet.is_eof:
                 event = 'eof'
             else:
                 event = 'packet'
-            if not self.fsm.handle(event):
-                self.connection.close('error handling event')
+            if self.fsm.handle(event):
+                self.packet.clear()
+                self.handle(None)  # handle any buffered data
             else:
-                self.packet.reset()
-                self.handle(None)
+                self.connection.close('error handling event')
         elif self.packet.error:
-            self.connection.close(self.packet.error)
+            self._done(1, self.packet.error)
 
     def escape(self, obj, mapping=None):
         if isinstance(obj, compat.str_type):
@@ -96,45 +97,44 @@ class Protocol(object):
         return converters.escape_item(obj, self.charset, mapping=mapping)
 
     def _escape_string(self, s):
-        if (self.handshake.server_status & SERVER_STATUS.SERVER_STATUS_NO_BACKSLASH_ESCAPES):
-            return s.replace("'", "''")
+        # if (self.handshake.server_status & SERVER_STATUS.SERVER_STATUS_NO_BACKSLASH_ESCAPES):
+        #     return s.replace("'", "''")
         return converters.escape_string(s)
 
-    def query(self, callback, sql, transaction_start=False, transaction_end=None, cls=None):
+    def query(self, callback, sql, start_transaction=False, end_transaction=None, cls=None):
         self._callback = callback
         self._cls = cls
         self._query = sql
         if not self.context.autocommit:
-            self._transaction_start = transaction_start
-            self._transaction_end = transaction_end
+            self._transaction_start = start_transaction
+            self._transaction_end = end_transaction
         self.fsm.handle('query')
 
     def act_query(self):
         if self._callback and self._query:
             if self._transaction_start:
                 return 'transaction'
+            self.connection.on_query_start(self._query)
             self._execute_command(COMMAND.COM_QUERY, self._query)
             self._query = None
-            self.fsm.handle('sent')
+            return 'sent'
+
+    def _done(self, rc, result):
+        if self._callback:
+            callback, self._callback = self._callback, None
+            callback(rc, result)
 
     def _execute_command(self, command, sql):
         if self.connection.context.sql_trace:
             self.connection.context.sql_trace(sql)
-        self.packet.reset(0)
         if isinstance(sql, compat.text_type):
             sql = sql.encode(self.encoding)
-        packet_size = min(packet.MAX_PACKET_LEN, len(sql) + 1)  # +1 is for command
-        prelude = struct.pack('<iB', packet_size, command)
-        p = prelude + sql[:packet_size-1]
-        self.connection.send(p)
-
-        if packet_size < packet.MAX_PACKET_LEN:
-            return
-
-        sql = sql[packet_size-1:]
+        sql = struct.pack('B', command) + sql
+        sequence = 0
         while True:
             packet_size = min(packet.MAX_PACKET_LEN, len(sql))
-            self.write_packet(sql[:packet_size])
+            self.write_packet(sql[:packet_size], sequence=sequence)
+            sequence = None
             sql = sql[packet_size:]
             if not sql and packet_size < packet.MAX_PACKET_LEN:
                 break
@@ -145,6 +145,7 @@ class Protocol(object):
 
     def act_transaction_end(self):
         self._query_status = self._ok
+        self.connection.on_query_end()
         if self._transaction_end:
             self._execute_command(COMMAND.COM_QUERY, self._transaction_end)
             self._transaction_end = None
@@ -205,10 +206,12 @@ class Protocol(object):
         result = tuple(self.result)
         if self.connection.context.column:
             result = (tuple(self.fields), result)
-        callback = self._callback
-        self._callback = None
         self._cls = None
-        callback(0, result)
+        self._done(0, result)
+        if self.connection.is_closed:
+            return 'close'
+        else:
+            return 'done'
 
     def act_parse_greeting(self):
         self.handshake = packet.Greeting(self.packet.data)
@@ -247,7 +250,7 @@ class Protocol(object):
             name = name.encode('ascii')
         data += name + b'\0'
 
-        self.write_packet(data)
+        self.write_packet(data, sequence=1)
         return 'sent'
 
     def act_parse_auth_response(self):
@@ -283,12 +286,13 @@ class Protocol(object):
         self._execute_command(COMMAND.COM_QUERY, sql)
 
     def act_close(self):
-        self.connection.close('state-machine triggered close')
+        self.connection.close(None)
 
     def act_connected(self):
         self.connection.on_connected()
         return 'query'
 
-    def write_packet(self, payload):
-        self.packet.increment()
+    def write_packet(self, payload, sequence):
+        self.packet.reset(sequence)
         packet.write(self.connection.send, self.packet.number, payload)
+        self.packet.increment()
