@@ -23,7 +23,7 @@ class RESTRequest(object):
             http_query_string
             http_query
 
-        It also provides access to a unique connection_id, and a json property which
+        It also provides access to a unique connection id, and a json property which
         is the content as a json document, the query string, or the content as a query
         string, any of which is cast to a dict (or possibly a list, in the first case).
 
@@ -48,43 +48,6 @@ class RESTRequest(object):
 
                     if the first parameter is not an int, then it is assumed that code=200,
                     and the first parameter is really content.
-
-            call(self, fn, args=None, kwargs=None, on_success=None, on_error=None,
-                    on_none=None, on_none_404=False) - call an asnyc function providing
-                    callbacks for various cases.
-
-                    fn - a function taking a callback_fn as the first argument followed by
-                    *args and **kwargs. a callback_fn takes two arguments: rc and result.
-                    if rc == 0, the async function completed sucessfully and the result is
-                    the appropriate return from the async function; if rc != 0, the async
-                    function did not finsh successfully, and result contains a message.
-
-                    args - arguments to fn or None. if scalar, a list is implied.
-
-                    kwargs - keyword args to fn or None.
-
-                    on_none_404, if specified as True, automatically calls
-                    request.respond(404) if rc == 0 and result is None. the rest handler
-                    is finished.
-
-                    on_none, if specified, is called if rc == 0 and result is None and
-                    on_none_404 is not specified.
-                        called with (request, result)
-
-                    on_success, if specified, is called if rc == 0 and result is not None,
-                    or rc == 0 and on_none_404 and on_none are not specified.
-                        called with (request, result)
-
-                    if rc == 0 and none of (on_success, on_none or on_none_404) is specified,
-                    then request.respond(200, result) is called. if request.response it not
-                    None, then request.response is sent instead of result. the rest handler
-                    is finished.
-
-                    on_error, if specified, is called if rc != 0.
-                        called with (1, result)
-
-                    if rc != 0 and on_error is not specified, then a warning is logged with
-                    result and request.respond(500) is called.
     '''
     def __init__(self, handler):
         self.handler = handler
@@ -127,37 +90,68 @@ class RESTRequest(object):
                 cleanup()
 
     def call(self, fn, args=None, kwargs=None, on_success=None, on_success_code=None, on_error=None, on_none=None, on_none_404=False):
-        """
-        Call an async function.
+        """ Call an async function.
 
-        This function allows flexible handling of the return states of async function
-        calls.
+        Allows for flexible handling of the return states of async function calls.
 
-        Parameters
-        ----------
-        fn - callable async function
-            fn takes a callback_fn along with args & kwargs. A callback function takes
-            two parameters (rc, result), where rc == 0 if the call to fn is successful,
-            and rc != 0 if the call to fn failed. The result parameter is the return
-            value from fn, or a message if rc != 0.
+        Parameters:
+            fn - callable async function (See Note 1)
 
-        args - None, scalar, tuple or list
-            Positional argments to be passed to fn.
+            args - None, scalar, tuple or list
+                Positional argments to be passed to fn.
 
-        kwargs - None or dict
-            Keyword argments to be passed to fn.
+            kwargs - None or dict
+                Keyword argments to be passed to fn.
 
-        on_success - callable
+            on_success - callable
+                called if specified and rc == 0 and
+                if none of on_success_code, on_none and on_none_404 apply
+                    on_success(request, result)
 
-        on_error - callable
+            on_success_code - int
+                if specified and rc == 0 and
+                if neither of on_none or on_none_404 apply
+                    callback(int)
 
-        on_none - callable
+            on_error - callable
+                called if specified and rc != 0
+                    on_error(request, result)
 
-        on_none_404 - boolean
+            on_none - callable
+                called if specified and rc == 0 and result is None and
+                if on_none_404 does not apply
+                    on_none(request, None)
 
-        Returns
-        -------
-        None
+            on_none_404 - boolean
+                if specified and rc == 0 and result is None:
+                    callback(404)
+
+        Notes:
+
+            1.  An async function is structured like this:
+
+                    fn(callback, *args, **kwargs)
+
+                When the function is complete, it calls callback with two parameters:
+
+                    rc - 0 for success, non-zero for error
+                    result - function response on success, message on error
+
+        Example:
+
+            def on_load(request, result):
+                pass
+
+            request.call(
+                load,
+                args=id,
+                on_success=on_load,
+                on_none_404=True,
+            )
+
+            This will call the load function, followed by on_load if the load
+            function completes sucessfully. If load produces a None result,
+            then the request will be responded to with a 404 Not Found.
         """
 
         def cb(rc, result):
