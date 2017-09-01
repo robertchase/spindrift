@@ -422,13 +422,7 @@ class DAO(object):
 
     def __getattr__(self, name):
         if name in self._tables:
-            result = self._tables[name]  # cached foreign or Query.join added object
-        elif name in self.FOREIGN:
-            result = self.foreign(self._import(self.FOREIGN[name]))  # foreign lookup
-        elif name in self._children:
-            result = self._children[name]  # cached children
-        elif name in self.CHILDREN:
-            result = self.children(self._import(self.CHILDREN[name]))  # children lookup
+            result = self._tables[name]
         else:
             result = super(DAO, self).__getattribute__(name)
         return result
@@ -441,7 +435,7 @@ class DAO(object):
         if name.startswith('_') or name in self.FIELDS or name in self.PROPERTIES:
             self.__dict__[name] = value
         else:
-            object.__setattr__(self, name, value)
+            raise AttributeError("%s has no attribute '%s'" % (self.__class__.__name__, name))
 
     def _json(self, value):
         if isinstance(value, (datetime, date)):
