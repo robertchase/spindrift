@@ -5,7 +5,7 @@ import uuid
 
 import spindrift.file_util as file_util
 from spindrift.micro_fsm.parser import Parser as parser
-from spindrift.rest.handler import RESTHandler
+from spindrift.rest.handler import RESTHandler, RESTContext
 from spindrift.rest.mapper import RESTMapper
 from spindrift.network import Network
 from spindrift.timer import Timer
@@ -13,9 +13,20 @@ from spindrift.timer import Timer
 log = logging.getLogger(__name__)
 
 
-class MicroContext(object):
+class Micro(object):
+    def __init__(self):
+        self.network = Network()
+        self.timer = Timer()
+        self.connections = type('Connections', (object,), dict())
 
-    def __init__(self, http_max_content_length, http_max_line_length, http_max_header_count):
+
+micro = Micro()
+
+
+class MicroContext(RESTContext):
+
+    def __init__(self, mapper, http_max_content_length, http_max_line_length, http_max_header_count):
+        super(MicroContext, self).__init__(mapper)
         self.http_max_content_length = http_max_content_length
         self.http_max_line_length = http_max_line_length
         self.http_max_header_count = http_max_header_count
@@ -23,9 +34,9 @@ class MicroContext(object):
 
 class MicroRESTHandler(RESTHandler):
 
-    def __init__(self, socket, context):
-        super(MicroRESTHandler, self).__init__(socket, context)
-        context = context.context
+    def __init__(self, *args, **kwargs):
+        super(MicroRESTHandler, self).__init__(*args, **kwargs)
+        context = self.context
         self.http_max_content_length = context.http_max_content_length
         self.http_max_line_length = context.http_max_line_length
         self.http_max_header_count = context.http_max_header_count
@@ -55,8 +66,8 @@ def load_server(filename, config=None):
     if config:
         p.config._load(file_util.normalize_path(config))
     sys.modules[__name__].config = p.config
-    SERVER.close()
-    setup_servers(p.config, p.servers, p.is_new)
+    micro.server.close()
+    setup_servers(p.config, p.servers)
     return p
 
 
@@ -70,8 +81,8 @@ def load_connection(filename, config=None):
 
 
 def re_start(p):
-    SERVER.close()
-    setup_servers(p.config, p.servers, p.is_new)
+    micro.server.close()
+    setup_servers(p.config, p.servers)
 
 
 def load_config(config='config', micro='micro'):
@@ -81,33 +92,31 @@ def load_config(config='config', micro='micro'):
     return p.config
 
 
-def setup_servers(config, servers, is_new):
+def setup_servers(config, servers):
     for server in servers.values():
-        if is_new:
-            conf = config._get('server.%s' % server.name)
-        else:
-            conf = config._get('%s' % server.name)
+        conf = config._get('server.%s' % server.name)
         if conf.is_active is False:
             continue
-        context = MicroContext(
-            conf.http_max_content_length if hasattr(conf, 'http_max_content_length') else None,
-            conf.http_max_line_length if hasattr(conf, 'http_max_line_length') else 10000,
-            conf.http_max_header_count if hasattr(conf, 'http_max_header_count') else 100,
-        )
-        mapper = RESTMapper(context)
+        mapper = RESTMapper()
         for route in server.routes:
             methods = {}
             for method, path in route.methods.items():
                 methods[method] = _import(path)
             mapper.add(route.pattern, **methods)
-        handler = _import(conf.handler, is_module=True) if hasattr(conf, 'handler') else MicroRESTHandler
-        SERVER.add_server(
-            conf.port,
-            handler,
+        context = MicroContext(
             mapper,
-            conf.ssl.is_active,
-            conf.ssl.certfile,
-            conf.ssl.keyfile,
+            conf.http_max_content_length if hasattr(conf, 'http_max_content_length') else None,
+            conf.http_max_line_length if hasattr(conf, 'http_max_line_length') else 10000,
+            conf.http_max_header_count if hasattr(conf, 'http_max_header_count') else 100,
+        )
+        handler = _import(conf.handler, is_module=True) if hasattr(conf, 'handler') else RESTHandler
+        micro.network.add_server(
+            port=conf.port,
+            handler=handler,
+            context=context,
+            is_ssl=conf.ssl.is_active,
+            ssl_certfile=conf.ssl.certfile,
+            ssl_keyfile=conf.ssl.keyfile,
         )
         log.info('listening on %s port %d', server.name, conf.port)
 
@@ -165,8 +174,8 @@ def start(config, setup):
 def run(sleep=100, max_iterations=100):
     while True:
         try:
-            SERVER.service(delay=sleep/1000.0, max_iterations=max_iterations)
-            TIMERS.service()
+            micro.network.service(timeout=sleep/1000.0, max_iterations=max_iterations)
+            micro.timer.service()
         except KeyboardInterrupt:
             log.info('Received shutdown command from keyboard')
             break
@@ -214,9 +223,8 @@ if __name__ == '__main__':
         print(p.config)
     else:
         module.config = p.config
-        setup_servers(p.config, p.servers, p.is_new)
-        if p.is_new:
-            pass  # setup_connections(p.config, p.connections)
+        setup_servers(p.config, p.servers)
+        pass  # setup_connections(p.config, p.connections)
         start(p.config, p.setup)
         run()
         stop(p.teardown)
