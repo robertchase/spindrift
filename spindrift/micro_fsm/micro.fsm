@@ -1,16 +1,26 @@
+# :required -optional=default
+#
+# SERVER :name :port
+#   ROUTE :pattern
+#     GET|PUT|POST|DELETE :path
+# CONNECTION :name :url -is_json=True -is_debug=False -timeout=5.0 -handler=None -setup=None -wrapper=None -setup=None
+#   HEADER :key -default=None -config=None -code=None
+#   RESOURCE :name :path -method=GET -is_json=None -is_debug=None -timeout=None -handler=None -setup=None -wrapper=None -setup=None
+#     REQUIRED :name
+#     OPTIONAL :name -default=None, -config=None -validate=None
+# CONFIG :name default=None, validate=None, env=None
+# SETUP :path
+# TEARDOWN :path
+
 STATE init
     EVENT server server
-#    EVENT connection connection
+    EVENT connection connection
     EVENT config
         ACTION add_config
-
-#STATE connection
-#    ENTER add_connection
-#    EVENT connection
-#        ACTION add_connection
-#    EVENT config
-#        ACTION add_config
-#    EVENT server server
+    EVENT setup
+        ACTION add_setup
+    EVENT teardown
+        ACTION add_teardown
 
 STATE server
     ENTER add_server
@@ -19,7 +29,11 @@ STATE server
         ACTION add_server
     EVENT config
         ACTION add_config
-#    EVENT connection connection
+    EVENT connection connection
+    EVENT setup
+        ACTION add_setup
+    EVENT teardown
+        ACTION add_teardown
 
 STATE route
     ENTER add_route
@@ -36,13 +50,43 @@ STATE route
     EVENT config
         ACTION add_config
     EVENT server server
-#    EVENT connection connection
+    EVENT connection connection
+    EVENT setup
+        ACTION add_setup
+    EVENT teardown
+        ACTION add_teardown
 
-# SERVER name port
-# ROUTE pattern
-# GET | POST | PUT | DELETE path
-#
-# xxx CONNECTION test http://test:10001
-# HEADER my-key config_name=mykey default=secret!
-#
-# CONFIG name default=default validate=int|bool|file env=env
+STATE connection
+    ENTER add_connection
+    EVENT connection
+        ACTION add_connection
+    EVENT config
+        ACTION add_config
+    EVENT header
+        ACTION add_header
+    EVENT config
+    EVENT resource resource
+    EVENT server server
+    EVENT setup
+        ACTION add_setup
+    EVENT teardown
+        ACTION add_teardown
+
+STATE resource
+    ENTER add_resource
+    EVENT resource resource
+    EVENT header
+        ACTION add_resource_header
+    EVENT required
+        ACTION add_required
+    EVENT optional
+        ACTION add_optional
+    EVENT config
+        ACTION add_config
+
+    EVENT server server
+    EVENT connection connection
+    EVENT setup
+        ACTION add_setup
+    EVENT teardown
+        ACTION add_teardown

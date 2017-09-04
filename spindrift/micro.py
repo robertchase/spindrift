@@ -4,11 +4,14 @@ import sys
 import uuid
 
 import spindrift.file_util as file_util
+from spindrift.micro_fsm.handler import InboundHandler
 from spindrift.micro_fsm.parser import Parser as parser
-from spindrift.rest.handler import RESTHandler, RESTContext
+from spindrift.rest.handler import RESTContext
 from spindrift.rest.mapper import RESTMapper
 from spindrift.network import Network
 from spindrift.timer import Timer
+
+import spindrift.micro_fsm.connect as micro_connection
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +20,7 @@ class Micro(object):
     def __init__(self):
         self.network = Network()
         self.timer = Timer()
-        self.connections = type('Connections', (object,), dict())
+        self.connection = type('Connections', (object,), dict())
 
 
 micro = Micro()
@@ -32,10 +35,10 @@ class MicroContext(RESTContext):
         self.http_max_header_count = http_max_header_count
 
 
-class MicroRESTHandler(RESTHandler):
+class MicroHandler(InboundHandler):
 
     def __init__(self, *args, **kwargs):
-        super(MicroRESTHandler, self).__init__(*args, **kwargs)
+        super(InboundHandler, self).__init__(*args, **kwargs)
         context = self.context
         self.http_max_content_length = context.http_max_content_length
         self.http_max_line_length = context.http_max_line_length
@@ -61,55 +64,25 @@ def _load(path):
     return p
 
 
-def load_server(filename, config=None):
-    p = _load(filename)
-    if config:
-        p.config._load(file_util.normalize_path(config))
-    sys.modules[__name__].config = p.config
-    micro.server.close()
-    setup_servers(p.config, p.servers)
-    return p
-
-
-def load_connection(filename, config=None):
-    p = _load(filename)
-    if config:
-        p.config._load(file_util.normalize_path(config))
-    sys.modules[__name__].config = p.config
-    # setup_connections(p.config, p.connections)
-    return p
-
-
-def re_start(p):
-    micro.server.close()
-    setup_servers(p.config, p.servers)
-
-
-def load_config(config='config', micro='micro'):
-    p = parser.parse(micro)
-    p.config._load(file_util.normalize_path(config))
-    sys.modules[__name__].config = p.config
-    return p.config
-
-
-def setup_servers(config, servers):
+def setup_servers(micro, servers):
+    config = micro.config
     for server in servers.values():
         conf = config._get('server.%s' % server.name)
         if conf.is_active is False:
             continue
         mapper = RESTMapper()
-        for route in server.routes:
-            methods = {}
-            for method, path in route.methods.items():
-                methods[method] = _import(path)
-            mapper.add(route.pattern, **methods)
         context = MicroContext(
             mapper,
             conf.http_max_content_length if hasattr(conf, 'http_max_content_length') else None,
             conf.http_max_line_length if hasattr(conf, 'http_max_line_length') else 10000,
             conf.http_max_header_count if hasattr(conf, 'http_max_header_count') else 100,
         )
-        handler = _import(conf.handler, is_module=True) if hasattr(conf, 'handler') else RESTHandler
+        for route in server.routes:
+            methods = {}
+            for method, path in route.methods.items():
+                methods[method] = _import(path)
+            mapper.add(route.pattern, **methods)
+        handler = _import(conf.handler, is_module=True) if hasattr(conf, 'handler') else MicroHandler
         micro.network.add_server(
             port=conf.port,
             handler=handler,
@@ -121,57 +94,60 @@ def setup_servers(config, servers):
         log.info('listening on %s port %d', server.name, conf.port)
 
 
-# def setup_connections(config, connections):
-#     for c in connections.values():
-#         conf = config._get('connection.%s' % c.name)
-#         headers = {}
-#         for header in c.headers.values():
-#             value = config._get('connection.%s.header.%s' % (c.name, header.config)) if header.config else _import(header.code) if header.code else header.default
-#             if value:
-#                 headers[header.key] = value
-#         conn = async.Connection(
-#            conf.url if c.url is not None else _import(c.code),
-#            c.is_json,
-#            conf.is_debug,
-#            conf.timeout,
-#            c.is_form,
-#            _import(c.wrapper) if c.wrapper else None,
-#            _import(c.handler) if c.handler else None,
-#            _import(c.setup) if c.setup else None,
-#            headers,
-#         )
-#         for resource in c.resources.values():
-#             optional = {}
-#             for option in resource.optional.values():
-#                 optional[option.name] = config._get('connection.%s.resource.%s.%s' % (c.name, resource.name, option.config)) if option.config else option.default
-#             if resource.headers is not None:
-#                 for header in resource.headers.values():
-#                     resource.headers[header.key] = config._get('connection.%s.resource.%s.header.%s' % (c.name, resource.name, header.config)) if header.config else _import(header.code) if header.code else header.default
-#             conn.add_resource(
-#                 resource.name,
-#                 resource.path,
-#                 resource.method,
-#                 resource.required,
-#                 optional,
-#                 resource.headers,
-#                 resource.is_json,
-#                 resource.is_debug,
-#                 resource.trace,
-#                 resource.timeout,
-#                 resource.is_form,
-#                 _import(resource.handler) if resource.handler else None,
-#                 _import(resource.wrapper) if resource.wrapper else None,
-#                 _import(resource.setup) if resource.setup else None,
-#             )
-#         setattr(connection, c.name, conn)
+def setup_connections(micro, connections):
+    config = micro.config
+    for c in connections.values():
+        conf = config._get('connection.%s' % c.name)
+        headers = {}
+        for header in c.headers.values():
+            value = config._get('connection.%s.header.%s' % (c.name, header.config)) if header.config else _import(header.code) if header.code else header.default
+            if value:
+                headers[header.key] = value
+        conn = micro_connection.MicroConnect(
+            micro.network,
+            micro.timer,
+            conf.url if c.url is not None else _import(c.code),
+            headers,
+            c.is_json,
+            conf.is_debug,
+            conf.timeout,
+            _import(c.handler) if c.handler else None,
+            _import(c.wrapper) if c.wrapper else None,
+            _import(c.setup) if c.setup else None,
+            c.is_form,
+        )
+        for resource in c.resources.values():
+            optional = {}
+            for option in resource.optional.values():
+                optional[option.name] = config._get('connection.%s.resource.%s.%s' % (c.name, resource.name, option.config)) if option.config else option.default
+            if resource.headers is not None:
+                for header in resource.headers.values():
+                    resource.headers[header.key] = config._get('connection.%s.resource.%s.header.%s' % (c.name, resource.name, header.config)) if header.config else _import(header.code) if header.code else header.default
+            conn.add_resource(
+                resource.name,
+                resource.path,
+                resource.method,
+                resource.headers,
+                resource.is_json,
+                resource.is_debug,
+                resource.trace,
+                resource.timeout,
+                _import(resource.handler) if resource.handler else None,
+                _import(resource.wrapper) if resource.wrapper else None,
+                _import(resource.setup) if resource.setup else None,
+                resource.is_form,
+                resource.required,
+                optional,
+            )
+        setattr(micro.connection, c.name, conn)
 
 
-def start(config, setup):
+def start(micro, setup):
     if setup:
-        _import(setup)(config)
+        _import(setup)(micro.config)
 
 
-def run(sleep=100, max_iterations=100):
+def run(micro, sleep=100, max_iterations=100):
     while True:
         try:
             micro.network.service(timeout=sleep/1000.0, max_iterations=max_iterations)
@@ -222,9 +198,9 @@ if __name__ == '__main__':
     if args.config_only is True:
         print(p.config)
     else:
-        module.config = p.config
-        setup_servers(p.config, p.servers)
-        pass  # setup_connections(p.config, p.connections)
-        start(p.config, p.setup)
-        run()
+        module.micro.config = p.config
+        setup_servers(module.micro, p.servers)
+        setup_connections(module.micro, p.connections)
+        start(module.micro, p.setup)
+        run(module.micro)
         stop(p.teardown)

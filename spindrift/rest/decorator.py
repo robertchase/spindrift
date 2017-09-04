@@ -1,5 +1,8 @@
+from spindrift.dao.db import DB
+
+
 def content_to_json(*fields, **kwargs):
-    '''rest_handler decorator that converts handler.html_content to handler.json
+    """rest_handler decorator that converts handler.html_content to handler.json
 
     The content must be a valid json document or a valid URI query string (as
     produced by a POSTed HTML form). If the content starts with a '[' or '{',
@@ -27,7 +30,7 @@ def content_to_json(*fields, **kwargs):
         400 - json conversion fails or specified fields not present in json
     Notes:
          1. This is responsive to the is_delayed flag on the request.
-    '''
+    """
     as_args = kwargs.setdefault('as_args', True)
 
     def __content_to_json(rest_handler):
@@ -60,3 +63,20 @@ def content_to_json(*fields, **kwargs):
             return rest_handler(request, *args, **kwargs)
         return inner
     return __content_to_json
+
+
+def db_cursor(rest_handler):
+    """ Add a databse cursor to a request
+
+        The cursor is added to the request as the attribute 'cursor'
+        and set to automatically close on request.respond. The
+        delay() method is called on the request object to allow
+        async calls to continue without a premature response.
+    """
+    def inner(request, *args, **kwargs):
+        cursor = DB.cursor
+        request.cursor = cursor
+        request.cleanup = cursor.close
+        request.delay()
+        rest_handler(request, *args, **kwargs)
+    return inner

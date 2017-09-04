@@ -170,7 +170,11 @@ class RESTRequest(object):
         self.delay()
 
         self.handler.on_request_call(self, fn, args, kwargs)
-        fn(cb, *args, **kwargs)
+        try:
+            fn(cb, *args, **kwargs)
+        except Exception:
+            log.exception('cid=%s: exception on call')
+            self.respond(500)
 
     @property
     def json(self):

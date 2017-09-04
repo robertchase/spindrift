@@ -67,7 +67,7 @@ class RESTHandler(http.HTTPHandler):
         ''' called after rest_request creation '''
         return request
 
-    def on_request_call(self, kwargs):
+    def on_request_call(self, request, fn, args, kwargs):
         ''' chance to amend kwargs on request.call '''
         pass
 

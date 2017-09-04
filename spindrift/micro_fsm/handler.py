@@ -1,91 +1,33 @@
-import json
+import inspect
+import logging
 import time
 import traceback
-import types
 
-from spindrift.http import HTTPHandler
-from spindrift.import_utils import import_by_pathname
-from spindrift.rest.handler import RESTHandler, RESTContext
+from spindrift.rest.connect import ConnectHandler
+from spindrift.rest.handler import RESTHandler
 
 
-import logging
 log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 
-class OutboundContext(object):
+class OutboundHandler(ConnectHandler):
 
-    def __init__(self, callback, micro, config, url, method, host, path, headers, body, is_json, is_debug, api_key, wrapper, timer, **kwargs):
-        self.callback = callback
-        self.micro = micro
-        self.config = config
-        self.url = url + path
-        self.method = method
-        self.host = host
-        self.path = path
-        self.headers = headers
-        self.body = body
-        self.is_json = is_json
-        self.is_debug = is_debug
-        self.api_key = api_key
-        self.wrapper = wrapper
-        self.timer = timer
-        self.kwargs = kwargs
-
-
-class OutboundHandler(HTTPHandler):
-
-    def on_init(self):
-        self.is_done = False
-        self.setup()
-        self.context.timer.set_action(self.on_timeout)
-        self.context.timer.start()
-        if self.context.is_debug:
+    def after_init(self):
+        kwargs = self.context.kwargs
+        for k in kwargs.keys():
+            if k not in ('is_debug', 'trace'):
+                raise TypeError("connect() got an unexpected keyword argument '%s'", k)
+        if kwargs.get('is_debug', False):
             log.debug('starting outbound connection, oid=%s: %s %s', self.id, self.context.method, self.context.url)
-
-    def setup(self):
-        context = self.context
-
-        # coerce remaining kwargs into body, if body not defined
-        if context.body is None:
-            if len(context.kwargs) == 0:
-                context.body = ''
-            else:
-                context.body = context.kwargs
-
-        # jsonify body, if it makes sense
-        if isinstance(context.body, (dict, list, tuple, float, bool, int)):
-            try:
-                context.body = json.dumps(context.kwargs)
-            except Exception:
-                context.body = str(context.kwargs)
-            else:
-                if context.headers is None:
-                    context.headers = {}
-                context.headers['Content-Type'] = 'application/json; charset=utf-8'
-
-        # setup api key
-        if context.api_key:
-            if context.headers is None:
-                context.headers = {}
-            context.headers['X-Auth-API-Key'] = context.api_key
-
-        # create arguments for send
-        context.send = {'method': context.method, 'host': context.host, 'resource': context.path, 'headers': context.headers, 'content': context.body}
-
-    def done(self, result, rc=0):
-        if self.is_done:
-            return
-        self.is_done = True
-        self.context.timer.cancel()
-        self.context.callback(rc, result)
-        self.close('transaction complete')
 
     def on_open(self):
         if self.context.is_debug:
-            log.debug('open oid=%s: %s', self.id, self.full_address)
+            log.debug('open oid=%s: %s', self.id, self.full_address())
 
     def on_close(self, reason):
-        if self.context.is_debug:
+        kwargs = self.context.kwargs
+        if kwargs.get('is_debug', False):
             now = time.perf_counter()
             msg = 'close oid=%s, reason=%s, opn=%.4f,' % (
                 self.id,
@@ -107,101 +49,37 @@ class OutboundHandler(HTTPHandler):
                     'success' if self.t_ready else 'fail',
                 )
             log.debug(msg)
-        self.done(reason)
+        super(OutboundHandler, self).on_close(None)
 
-    def on_failed_handshake(self, reason):
-        log.warning('ssl error cid=%s: %s', self.id, reason)
-
-    def on_ready(self):
-        self.context.timer.re_start()
-        self.send(**self.context.send)
+    def on_http_send(self, headers, content):
+        kwargs = self.context.kwargs
+        if kwargs.get('trace', False):
+            log.debug('>>> %s %s' % (headers, content))
 
     def on_data(self, data):
-        self.context.timer.re_start()
+        kwargs = self.context.kwargs
+        if kwargs.get('trace', False):
+            log.debug('<<< %s', data)
+        self.timer.re_start()
         super(OutboundHandler, self).on_data(data)
-
-    def on_http_data(self):
-        status = self.http_status_code
-        result = self.http_content
-        if status >= 200 and status <= 299:
-            if self.context.is_json and len(result):
-                try:
-                    result = json.loads(result)
-                except Exception as e:
-                    return self.done(str(e), 1)
-        else:
-            return self.done(self.http_status_message if result == '' else result, 1)
-
-        if self.context.wrapper:
-            wrap = import_by_pathname(self.context.wrapper)
-            result = wrap(result)
-
-        self.done(result)
-
-    def on_timeout(self):
-        self.close('timeout')
-
-
-class InboundContext(RESTContext):
-
-    def __init__(self, mapper, micro, api_key=None):
-        super(InboundContext, self).__init__(mapper)
-        self.micro = micro
-        self.api_key = api_key
-
-
-def defer(request, deferred_fn, immediate_fn, *args, **kwargs):
-
-    error_fn = kwargs.pop('error_fn', None)
-    error_msg = kwargs.pop('error_msg', None)
-    error_200 = kwargs.pop('error_200', False)
-
-    def on_defer(rc, result):
-        if rc == 0:
-            return deferred_fn(request, result)
-        if error_fn:
-            return error_fn(request, result)
-        if error_msg:
-            log.warning('error cid=%s: %s', request.id, result)
-            result = error_msg
-        if error_200:
-            return request.respond({'error': result})
-        request.respond(400, result)
-
-    request.delay()
-    immediate_fn(on_defer, *args, **kwargs)
 
 
 class InboundHandler(RESTHandler):
+
+    def on_request_call(self, request, fn, args, kwargs):
+        """ inspect for 'cursor' in fn's parameters, and add if necessary and available """
+        if hasattr(request, 'cursor') and 'cursor' not in kwargs:
+            if 'cursor' in inspect.signature(fn).parameters:
+                kwargs['cursor'] = request.cursor
 
     def on_open(self):
         log.info('open: cid=%d, %s', self.id, self.full_address)
 
     def on_close(self, reason):
-        log.info('close: cid=%s, reason=%s', self.id, reason)
+        log.info('close: cid=%s, reason=%s, t=%.4f, rx=%d, tx=%d', getattr(self, 'id', '.'), reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
 
-    def check_api_key(self):
-        api_key = self.context.api_key
-        if api_key:
-            if api_key == self.http_headers.get('x-auth-api-key'):
-                return True
-            log.warning('api key failure cid=%s', self.id)
-            return False
-        return True
-
-    def on_http_headers(self):
-        if not self.check_api_key():
-            self._rest_send(401)
-            self.close('api key mismatch')
-
-    def on_rest_data(self, *groups):
+    def on_rest_data(self, request, *groups):
         log.info('request cid=%d, method=%s, resource=%s, query=%s, groups=%s', self.id, self.http_method, self.http_resource, self.http_query_string, groups)
-
-    def on_rest_request(self, request):
-        request.connection = self.context.micro.connection
-        request.defer = types.MethodType(defer, request)
-        request.context = type('stash', (object,), {})
-        return request
 
     def on_rest_send(self, code, message, content, headers):
         log.debug('response cid=%d, code=%d, message=%s, headers=%s', self.id, code, message, headers)
@@ -209,8 +87,8 @@ class InboundHandler(RESTHandler):
     def on_rest_no_match(self):
         log.warning('no match cid=%d, method=%s, resource=%s', self.id, self.http_method, self.http_resource)
 
-    def on_http_error(self, message):
-        log.warning('http error cid=%d: %s', self.id, message)
+    def on_http_error(self):
+        log.warning('http error cid=%d: %s', self.id, self.error)
 
     def on_rest_exception(self, exception_type, value, trace):
         log.exception('exception encountered:')

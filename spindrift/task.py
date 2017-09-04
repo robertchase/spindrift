@@ -1,7 +1,12 @@
+import functools
+import inspect
+
+
 class Task(object):
 
-    def __init__(self, callback):
+    def __init__(self, callback, cursor=None):
         self._callback = callback
+        self.cursor = cursor
         self.is_done = True
         self._cleanup = []
 
@@ -32,6 +37,11 @@ class Task(object):
         if kwargs is None:
             kwargs = {}
 
+        # pass along the cursor if available in task and needed in fn
+        if hasattr(self, 'cursor') and 'cursor' not in kwargs:
+            if 'cursor' in inspect.signature(fn).parameters:
+                kwargs['cursor'] = self.cursor
+
         fn(cb, *args, **kwargs)
 
 
@@ -57,7 +67,8 @@ def _callback(task, rc, result, on_success, on_error, on_timeout):
 
 
 def callback_as_task(fn):
+    @functools.wraps(fn)
     def inner(callback, *args, **kwargs):
-        task = Task(callback)
+        task = Task(callback, cursor=kwargs.get('cursor'))
         fn(task, *args, **kwargs)
     return inner

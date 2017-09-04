@@ -58,9 +58,13 @@ def connect(network, timer, callback, url, method='GET', body=None, headers=None
             1. If body is a dict and method is GET, then the contents of dict are added
                to the query string and body is cleared.
     '''
-    p = _URLParser(url)
-    c = ConnectContext(callback, timer, url, method, p.path, p.query, p.host, headers, body, is_json, timeout, wrapper, kwargs)
-    return network.add_connection(p.address, p.port, ConnectHandler if handler is None else handler, c, is_ssl=p.is_ssl)
+    p = URLParser(url)
+    return connect_parsed(network, timer, callback, url, p.host, p.address, p.port, p.path, p.query, p.is_ssl, method, headers, body, is_json, timeout, wrapper, handler, **kwargs)
+
+
+def connect_parsed(network, timer, callback, url, host, address, port, path, query, is_ssl, method, headers, body, is_json, timeout, wrapper, handler, **kwargs):
+    c = ConnectContext(callback, timer, url, method, path, query, host, headers, body, is_json, timeout, wrapper, kwargs)
+    return network.add_connection(address, port, handler or ConnectHandler, c, is_ssl=is_ssl)
 
 
 class ConnectContext(object):
@@ -202,7 +206,7 @@ class ConnectHandler(HTTPHandler):
         self.done('timeout', 1)
 
 
-class _URLParser(object):
+class URLParser(object):
 
     def __init__(self, url):
 

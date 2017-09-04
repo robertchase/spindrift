@@ -125,6 +125,8 @@ class DAO(object):
                 insert - bool
                          if True save object with non-None id with INSERT instead of UPDATE
                 cursor - database cursor (if None, new cursor will be created)
+                start_transaction - start transaction before performing save (See Note 3)
+                commit - commit transaction after performing save (See Note 3)
 
             Callback result:
                 self
@@ -135,6 +137,9 @@ class DAO(object):
                    id attribute is set to the auto-generated primary key.
 
                 2. On UPDATE, only changed fields, if any, are SET.
+
+                3. If start_transaction and commit are not specified, then the save will be
+                   automatically wrapped in a transaction (start_transaction, save, commit).
         """
         cache = {}
         for n in self.JSON_FIELDS:
@@ -147,7 +152,7 @@ class DAO(object):
             self.__dict__.update(cache)
             if rc == 0:
                 self.after_save()
-            callback(rc, result)
+            callback(rc, self)
 
         if not cursor:
             cursor = DB.cursor
