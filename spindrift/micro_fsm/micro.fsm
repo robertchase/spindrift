@@ -21,6 +21,8 @@ STATE init
         ACTION add_setup
     EVENT teardown
         ACTION add_teardown
+    EVENT database
+        ACTION add_database
 
 STATE server
     ENTER add_server
@@ -34,6 +36,8 @@ STATE server
         ACTION add_setup
     EVENT teardown
         ACTION add_teardown
+    EVENT database
+        ACTION add_database
 
 STATE route
     ENTER add_route
@@ -55,6 +59,8 @@ STATE route
         ACTION add_setup
     EVENT teardown
         ACTION add_teardown
+    EVENT database
+        ACTION add_database
 
 STATE connection
     ENTER add_connection
@@ -71,6 +77,8 @@ STATE connection
         ACTION add_setup
     EVENT teardown
         ACTION add_teardown
+    EVENT database
+        ACTION add_database
 
 STATE resource
     ENTER add_resource
@@ -90,3 +98,5 @@ STATE resource
         ACTION add_setup
     EVENT teardown
         ACTION add_teardown
+    EVENT database
+        ACTION add_database

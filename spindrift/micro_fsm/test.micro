@@ -1,5 +1,0 @@
-SERVER public 10000
-    ROUTE /test/ping$
-        GET foo.ping
-
-# CONNECTION test http://test:12345

@@ -65,6 +65,7 @@ class Parser(object):
             add_config=self.act_add_config,
             add_config_server=self.act_add_config_server,
             add_connection=self.act_add_connection,
+            add_database=self.act_add_database,
             add_header=self.act_add_header,
             add_method=self.act_add_method,
             add_optional=self.act_add_optional,
@@ -81,6 +82,7 @@ class Parser(object):
         self.config = config_file.Config()
         self.setup = None
         self.teardown = None
+        self.database = None
         self.connections = {}
         self._config_servers = {}
         self.servers = {}
@@ -139,6 +141,20 @@ class Parser(object):
             self._add_config('connection.%s.is_active' % connection.name, value=True, validator=config_file.validate_bool)
             self._add_config('connection.%s.is_debug' % connection.name, value=connection.is_debug, validator=config_file.validate_bool)
             self._add_config('connection.%s.timeout' % connection.name, value=connection.timeout, validator=float)
+
+    def act_add_database(self):
+        if self.database:
+            self.error = 'DATABASE specified more than once'
+        else:
+            database = Database(*self.args, **self.kwargs)
+            self.database = database
+            self._add_config('db.is_active', value=database.is_active, validator=config_file.validate_bool)
+            self._add_config('db.user', value=database.user)
+            self._add_config('db.password', value=database.password)
+            self._add_config('db.database', value=database.database)
+            self._add_config('db.host', value=database.host, env='MYSQL_HOST')
+            self._add_config('db.port', value=database.port, validator=config_file.validate_int)
+            self._add_config('db.isolation', value=database.isolation)
 
     def act_add_header(self):
         header = Header(*self.args, **self.kwargs)
@@ -259,6 +275,18 @@ class Method(object):
 
     def __repr__(self):
         return 'Method[method=%s, path=%s]' % (self.method, self.path)
+
+
+class Database(object):
+
+    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', handler=None):
+        self.is_active = is_active
+        self.user = user
+        self.password = password
+        self.database = database
+        self.host = host
+        self.port = port
+        self.isolation = isolation
 
 
 class Connection(object):

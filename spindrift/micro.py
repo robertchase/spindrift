@@ -3,11 +3,13 @@ import logging
 import sys
 import uuid
 
+from spindrift.dao.db import DB
 import spindrift.file_util as file_util
 from spindrift.micro_fsm.handler import InboundHandler
 from spindrift.micro_fsm.parser import Parser as parser
 from spindrift.rest.handler import RESTContext
 from spindrift.rest.mapper import RESTMapper
+from spindrift.mysql.connection import MysqlHandler
 from spindrift.network import Network
 from spindrift.timer import Timer
 
@@ -62,6 +64,21 @@ def _load(path):
     path = file_util.normalize_path(path, filetype='micro')
     p = parser.parse(path)
     return p
+
+
+def setup_database(micro):
+    db = micro.config.db
+    if db.is_active:
+        DB.setup(
+            micro.network,
+            user=db.user,
+            pswd=db.password,
+            db=db.database,
+            host=db.host,
+            port=db.port,
+            isolation=db.isolation,
+            handler=MysqlHandler,
+        )
 
 
 def setup_servers(micro, servers):
@@ -199,8 +216,10 @@ if __name__ == '__main__':
         print(p.config)
     else:
         module.micro.config = p.config
+        setup_database(module.micro)
         setup_servers(module.micro, p.servers)
         setup_connections(module.micro, p.connections)
         start(module.micro, p.setup)
         run(module.micro)
         stop(p.teardown)
+        module.micro.network.stop()
