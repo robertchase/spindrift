@@ -29,6 +29,10 @@ class MysqlHandler(network.Handler):
     def pswd(self):
         return self.context.pswd
 
+    @property
+    def raw_query(self):
+        return self.cursor._before_executed
+
     def on_connected(self):
         pass
 

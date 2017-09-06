@@ -1,15 +1,13 @@
 from importlib import import_module
 import logging
-import sys
 import uuid
 
 from spindrift.dao.db import DB
 import spindrift.file_util as file_util
-from spindrift.micro_fsm.handler import InboundHandler
+from spindrift.micro_fsm.handler import InboundHandler, MysqlHandler
 from spindrift.micro_fsm.parser import Parser as parser
 from spindrift.rest.handler import RESTContext
 from spindrift.rest.mapper import RESTMapper
-from spindrift.mysql.connection import MysqlHandler
 from spindrift.network import Network
 from spindrift.timer import Timer
 
@@ -179,14 +177,6 @@ def run(micro, sleep=100, max_iterations=100):
 def stop(teardown):
     if teardown:
         _import(teardown)()
-
-
-def launch(micro):
-    p = parser.parse(micro)
-    sys.modules[__name__].config = p.config
-    setup_servers(p.config, p.servers)
-    # setup_connections(p.config, p.connections)
-    run()
 
 
 if __name__ == '__main__':

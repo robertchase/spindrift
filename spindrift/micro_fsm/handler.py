@@ -5,6 +5,7 @@ import traceback
 
 from spindrift.rest.connect import ConnectHandler
 from spindrift.rest.handler import RESTHandler
+from spindrift.mysql.connection import MysqlHandler as Mysql
 
 
 log = logging.getLogger(__name__)
@@ -93,3 +94,19 @@ class InboundHandler(RESTHandler):
     def on_rest_exception(self, exception_type, value, trace):
         log.exception('exception encountered:')
         return traceback.format_exc(trace)
+
+
+class MysqlHandler(Mysql):
+
+    def on_connected(self):
+        log.info('mysql connected : did=%d', self.id)
+
+    def on_close(self, reason):
+        log.info('mysql close: did=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
+
+    def on_query_start(self, query):
+        self.t_query = time.perf_counter()
+        log.info('mysql start query: did=%d: %s', self.id, self.raw_query)
+
+    def on_query_end(self):
+        log.info('mysql query end: did=%s, t=%.4f', self.id, time.perf_counter() - self.t_query)
