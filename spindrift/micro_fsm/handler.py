@@ -1,11 +1,10 @@
-import inspect
 import logging
 import time
 import traceback
 
 from spindrift.rest.connect import ConnectHandler
 from spindrift.rest.handler import RESTHandler
-from spindrift.mysql.connection import MysqlHandler as Mysql
+import spindrift.mysql.connection as mysql_connection
 
 
 log = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ class OutboundHandler(ConnectHandler):
 
     def on_open(self):
         if self.context.is_debug:
-            log.debug('open oid=%s: %s', self.id, self.full_address())
+            log.info('open oid=%s: %s', self.id, self.full_address())
 
     def on_close(self, reason):
         kwargs = self.context.kwargs
@@ -49,7 +48,7 @@ class OutboundHandler(ConnectHandler):
                 msg += ', ssl handshake=%s' % (
                     'success' if self.t_ready else 'fail',
                 )
-            log.debug(msg)
+            log.info(msg)
         super(OutboundHandler, self).on_close(None)
 
     def on_http_send(self, headers, content):
@@ -67,12 +66,6 @@ class OutboundHandler(ConnectHandler):
 
 class InboundHandler(RESTHandler):
 
-    def on_request_call(self, request, fn, args, kwargs):
-        """ inspect for 'cursor' in fn's parameters, and add if necessary and available """
-        if hasattr(request, 'cursor') and 'cursor' not in kwargs:
-            if 'cursor' in inspect.signature(fn).parameters:
-                kwargs['cursor'] = request.cursor
-
     def on_open(self):
         log.info('open: cid=%d, %s', self.id, self.full_address)
 
@@ -83,7 +76,7 @@ class InboundHandler(RESTHandler):
         log.info('request cid=%d, method=%s, resource=%s, query=%s, groups=%s', self.id, self.http_method, self.http_resource, self.http_query_string, groups)
 
     def on_rest_send(self, code, message, content, headers):
-        log.debug('response cid=%d, code=%d, message=%s, headers=%s', self.id, code, message, headers)
+        log.info('response cid=%d, code=%d, message=%s, headers=%s', self.id, code, message, headers)
 
     def on_rest_no_match(self):
         log.warning('no match cid=%d, method=%s, resource=%s', self.id, self.http_method, self.http_resource)
@@ -96,17 +89,30 @@ class InboundHandler(RESTHandler):
         return traceback.format_exc(trace)
 
 
-class MysqlHandler(Mysql):
+class MysqlHandler(mysql_connection.MysqlHandler):
 
-    def on_connected(self):
-        log.info('mysql connected : did=%d', self.id)
+    def on_init(self):
+        super(MysqlHandler, self).on_init()
+        context = self.context
+        self.timer = context.timer.add(self.on_timeout, context.timeout * 1000).start()
+
+    def on_open(self):
+        log.info('mysql open: mid=%d', self.id)
+
+    def on_timeout(self):
+        log.warning('mysql timeout: mid=%d', self.id)
+        self.close('timeout')
 
     def on_close(self, reason):
-        log.info('mysql close: did=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
+        self.timer.cancel()
+        log.info('mysql close: mid=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
 
     def on_query_start(self, query):
         self.t_query = time.perf_counter()
-        log.info('mysql start query: did=%d: %s', self.id, self.raw_query)
+        log.info('mysql query start: mid=%d', self.id)
 
     def on_query_end(self):
-        log.info('mysql query end: did=%s, t=%.4f', self.id, time.perf_counter() - self.t_query)
+        t = time.perf_counter() - self.t_query
+        if t > self.context.long_query:
+            log.warning('mysql long query: mid=%s, t=%.4f: %s', self.id, t, self.raw_query)
+        log.info('mysql query end: mid=%s, t=%.4f', self.id, t)

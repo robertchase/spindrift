@@ -63,10 +63,10 @@ class Parser(object):
     def __init__(self):
         self.fsm = create_machine(
             add_config=self.act_add_config,
-            add_config_server=self.act_add_config_server,
             add_connection=self.act_add_connection,
             add_database=self.act_add_database,
             add_header=self.act_add_header,
+            add_log=self.act_add_log,
             add_method=self.act_add_method,
             add_optional=self.act_add_optional,
             add_required=self.act_add_required,
@@ -83,6 +83,7 @@ class Parser(object):
         self.setup = None
         self.teardown = None
         self.database = None
+        self.log = None
         self.connections = {}
         self._config_servers = {}
         self.servers = {}
@@ -123,9 +124,12 @@ class Parser(object):
             config.default = config.validate(config.default)
         self._add_config(config.name, **config.kwargs)
 
-    def act_add_config_server(self):
-        name, port = self.args
-        self._config_servers[name] = port
+    def act_add_log(self):
+        if self.log is not None:
+            self.error = 'duplicate LOG directive'
+        else:
+            self.log = Log(*self.args, **self.kwargs)
+            self._add_config('log.name', value=self.log.name)
 
     def act_add_connection(self):
         connection = Connection(*self.args, **self.kwargs)
@@ -155,6 +159,8 @@ class Parser(object):
             self._add_config('db.host', value=database.host, env='MYSQL_HOST')
             self._add_config('db.port', value=database.port, validator=config_file.validate_int)
             self._add_config('db.isolation', value=database.isolation)
+            self._add_config('db.timeout', value=database.timeout, validator=float)
+            self._add_config('db.long_query', value=database.long_query, validator=float)
 
     def act_add_header(self):
         header = Header(*self.args, **self.kwargs)
@@ -239,6 +245,12 @@ class Config(object):
         return {'value': self.default, 'validator': self.validate, 'env': self.env}
 
 
+class Log(object):
+
+    def __init__(self, name):
+        self.name = name
+
+
 class Server(object):
 
     def __init__(self, name, port):
@@ -279,7 +291,7 @@ class Method(object):
 
 class Database(object):
 
-    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', handler=None):
+    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', handler=None, timeout=60.0, long_query=0.5):
         self.is_active = is_active
         self.user = user
         self.password = password
@@ -287,6 +299,8 @@ class Database(object):
         self.host = host
         self.port = port
         self.isolation = isolation
+        self.timeout = float(timeout)
+        self.long_query = float(long_query)
 
 
 class Connection(object):

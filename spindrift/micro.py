@@ -1,5 +1,7 @@
 from importlib import import_module
 import logging
+import logging.config
+import platform
 import uuid
 
 from spindrift.dao.db import DB
@@ -64,8 +66,68 @@ def _load(path):
     return p
 
 
+def setup_log(micro, stdout):
+
+    try:
+        config = micro.config.log
+    except Exception:
+        name = 'MICRO'
+        stdout = True
+    else:
+        name = config.name
+        stdout = stdout
+
+    conf = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'standard': {
+                'datefmt': '%Y-%m-%d %H:%M:%S',
+            },
+            'syslog': {
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'standard',
+            },
+            'syslog': {
+                'class': 'logging.handlers.SysLogHandler',
+                'address': '/dev/log',
+                'formatter': 'syslog',
+            },
+        },
+        'loggers': {
+            '': {
+                'handlers': ['default'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+        },
+    }
+
+    body = ' [%(levelname)s] %(name)s:%(lineno)d> %(message)s'
+    conf['formatters']['standard']['format'] = '%(asctime)s ' + name + body
+    conf['formatters']['syslog']['format'] = name + body
+
+    if platform.system() == 'Darwin':
+        conf['handlers']['syslog']['address'] = '/var/run/syslog'
+
+    if stdout:
+        conf['handlers']['default'] = conf['handlers']['console']
+        del conf['handlers']['syslog']
+    else:
+        conf['handlers']['default'] = conf['handlers']['syslog']
+
+    logging.config.dictConfig(conf)
+
+
 def setup_database(micro):
-    db = micro.config.db
+    try:
+        db = micro.config.db
+    except Exception:
+        return
     if db.is_active:
         DB.setup(
             micro.network,
@@ -77,6 +139,9 @@ def setup_database(micro):
             isolation=db.isolation,
             handler=MysqlHandler,
         )
+        DB.context.timer = micro.timer
+        DB.context.timeout = db.timeout
+        DB.context.long_query = db.long_query
 
 
 def setup_servers(micro, servers):
@@ -195,7 +260,6 @@ if __name__ == '__main__':
     aparser.add_argument('--micro', default='micro', help='micro description file')
     aparser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
 
-    aparser.add_argument('-v', '--verbose', action='store_true', default=False, help='display debug level messages')
     aparser.add_argument('-s', '--stdout', action='store_true', default=False, help='display messages to stdout')
     args = aparser.parse_args()
 
@@ -206,10 +270,11 @@ if __name__ == '__main__':
         print(p.config)
     else:
         module.micro.config = p.config
+        setup_log(module.micro, args.stdout)
         setup_database(module.micro)
         setup_servers(module.micro, p.servers)
         setup_connections(module.micro, p.connections)
         start(module.micro, p.setup)
         run(module.micro)
         stop(p.teardown)
-        module.micro.network.stop()
+        module.micro.network.close()

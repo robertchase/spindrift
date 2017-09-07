@@ -1,5 +1,8 @@
+import inspect
 import json
 import urllib.parse as urlparse
+
+from spindrift.task import Task
 
 
 import logging
@@ -89,7 +92,7 @@ class RESTRequest(object):
             for cleanup in self._cleanup[::-1]:
                 cleanup()
 
-    def call(self, fn, args=None, kwargs=None, on_success=None, on_success_code=None, on_error=None, on_none=None, on_none_404=False):
+    def call(self, fn, args=None, kwargs=None, on_success=None, on_success_code=None, on_error=None, on_none=None, on_none_404=False, task=False):
         """ Call an async function.
 
         Allows for flexible handling of the return states of async function calls.
@@ -125,6 +128,9 @@ class RESTRequest(object):
             on_none_404 - boolean
                 if specified and rc == 0 and result is None:
                     callback(404)
+
+            task - boolean
+                if True replace callback with Task in fn
 
         Notes:
 
@@ -169,7 +175,14 @@ class RESTRequest(object):
 
         self.delay()
 
-        self.handler.on_request_call(self, fn, args, kwargs)
+        if task:
+            cb = Task(cb, getattr(self, 'cursor'))
+        else:
+            """ inspect for 'cursor' in fn's parameters, and add if necessary and available """
+            if hasattr(self, 'cursor') and 'cursor' not in kwargs:
+                if 'cursor' in inspect.signature(fn).parameters:
+                    kwargs['cursor'] = self.cursor
+
         try:
             fn(cb, *args, **kwargs)
         except Exception:

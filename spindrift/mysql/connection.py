@@ -33,6 +33,9 @@ class MysqlHandler(network.Handler):
     def raw_query(self):
         return self.cursor._before_executed
 
+    def on_close(self, reason):
+        self._cursor.close()
+
     def on_connected(self):
         pass
 

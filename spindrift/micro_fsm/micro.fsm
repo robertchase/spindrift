@@ -8,6 +8,8 @@
 #   RESOURCE :name :path -method=GET -is_json=None -is_debug=None -timeout=None -handler=None -setup=None -wrapper=None -setup=None
 #     REQUIRED :name
 #     OPTIONAL :name -default=None, -config=None -validate=None
+# DATABASE -is_active=True -user=None -password=None -database=None -host=None -port=3306 -isolation='READ COMMITTED' -handler=None -timeout=60.0 -long_query=0.5
+# LOG :name -stdout=False
 # CONFIG :name default=None, validate=None, env=None
 # SETUP :path
 # TEARDOWN :path
@@ -17,27 +19,56 @@ STATE init
     EVENT connection connection
     EVENT config
         ACTION add_config
-    EVENT setup
-        ACTION add_setup
-    EVENT teardown
-        ACTION add_teardown
-    EVENT database
-        ACTION add_database
+    EVENT database database
+    EVENT setup setup
+    EVENT teardown teardown
+    EVENT log log
+
+STATE database
+    ENTER add_database
+    EVENT server server
+    EVENT connection connection
+    EVENT config
+        ACTION add_config
+    EVENT setup setup
+    EVENT teardown teardown
+    EVENT log log
+
+STATE setup
+    ENTER add_setup
+    EVENT server server
+    EVENT connection connection
+    EVENT config
+        ACTION add_config
+    EVENT database database
+    EVENT teardown teardown
+    EVENT log log
+
+STATE teardown
+    ENTER add_teardown
+    EVENT server server
+    EVENT connection connection
+    EVENT config
+        ACTION add_config
+    EVENT database database
+    EVENT setup setup
+    EVENT log log
+
+STATE log
+    ENTER add_log
+    EVENT server server
+    EVENT connection connection
+    EVENT config
+        ACTION add_config
+    EVENT database database
+    EVENT setup setup
 
 STATE server
     ENTER add_server
     EVENT route route
-    EVENT server
-        ACTION add_server
     EVENT config
         ACTION add_config
     EVENT connection connection
-    EVENT setup
-        ACTION add_setup
-    EVENT teardown
-        ACTION add_teardown
-    EVENT database
-        ACTION add_database
 
 STATE route
     ENTER add_route
@@ -55,30 +86,20 @@ STATE route
         ACTION add_config
     EVENT server server
     EVENT connection connection
-    EVENT setup
-        ACTION add_setup
-    EVENT teardown
-        ACTION add_teardown
-    EVENT database
-        ACTION add_database
+    EVENT config
+        ACTION add_config
+    EVENT database database
+    EVENT setup setup
+    EVENT teardown teardown
+    EVENT log log
 
 STATE connection
     ENTER add_connection
-    EVENT connection
-        ACTION add_connection
-    EVENT config
-        ACTION add_config
     EVENT header
         ACTION add_header
-    EVENT config
     EVENT resource resource
-    EVENT server server
-    EVENT setup
-        ACTION add_setup
-    EVENT teardown
-        ACTION add_teardown
-    EVENT database
-        ACTION add_database
+    EVENT config
+        ACTION add_config
 
 STATE resource
     ENTER add_resource
@@ -89,14 +110,12 @@ STATE resource
         ACTION add_required
     EVENT optional
         ACTION add_optional
+
     EVENT config
         ACTION add_config
-
     EVENT server server
     EVENT connection connection
-    EVENT setup
-        ACTION add_setup
-    EVENT teardown
-        ACTION add_teardown
-    EVENT database
-        ACTION add_database
+    EVENT database database
+    EVENT setup setup
+    EVENT teardown teardown
+    EVENT log log
