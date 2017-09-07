@@ -59,6 +59,8 @@ class _DB(object):
 
     @property
     def connection(self):
+        if self.context is None:
+            raise Exception('database connection is not configured')
         return self.network.add_connection(
             self.host,
             self.port,
