@@ -72,9 +72,11 @@ def setup_log(micro, stdout):
         config = micro.config.log
     except Exception:
         name = 'MICRO'
+        level = 'INFO'
         stdout = True
     else:
         name = config.name
+        level = config.level.upper()
         stdout = stdout
 
     conf = {
@@ -101,7 +103,7 @@ def setup_log(micro, stdout):
         'loggers': {
             '': {
                 'handlers': ['default'],
-                'level': 'DEBUG',
+                'level': level,
                 'propagate': True,
             },
         },

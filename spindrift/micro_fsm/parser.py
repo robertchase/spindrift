@@ -130,6 +130,7 @@ class Parser(object):
         else:
             self.log = Log(*self.args, **self.kwargs)
             self._add_config('log.name', value=self.log.name)
+            self._add_config('log.level', value=self.log.level)
 
     def act_add_connection(self):
         connection = Connection(*self.args, **self.kwargs)
@@ -247,8 +248,9 @@ class Config(object):
 
 class Log(object):
 
-    def __init__(self, name):
+    def __init__(self, name, level='info'):
         self.name = name
+        self.level = level
 
 
 class Server(object):
