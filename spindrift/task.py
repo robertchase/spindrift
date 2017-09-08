@@ -1,4 +1,8 @@
 import inspect
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 class Task(object):
@@ -21,11 +25,11 @@ class Task(object):
             cleanup()
         return self._callback
 
-    def call(self, fn, args=None, kwargs=None, on_success=None, on_error=None, on_timeout=None, task=True):
+    def call(self, fn, args=None, kwargs=None, on_success=None, on_error=None, on_timeout=None, task=False):
         self.is_done = False
 
         def cb(rc, result):
-            _callback(self, rc, result, on_success, on_error, on_timeout)
+            _callback(self, fn, rc, result, on_success, on_error, on_timeout)
             self.is_done = True
 
         if args is None:
@@ -44,25 +48,30 @@ class Task(object):
                 if 'cursor' in inspect.signature(fn).parameters:
                     kwargs['cursor'] = self.cursor
 
+        log.debug('calling task %s', fn)
         fn(cb, *args, **kwargs)
 
 
-def _callback(task, rc, result, on_success, on_error, on_timeout):
+def _callback(task, fn, rc, result, on_success, on_error, on_timeout):
     if rc == 0:
         if on_success:
             try:
+                log.debug('task %s on_success', fn)
                 return on_success(task, result)
             except Exception as e:
                 return task.callback(1, 'exception during on_success: %s' % e)
     else:
         if on_timeout and result == 'timeout':
             try:
+                log.debug('task %s on_timeout', fn)
                 return on_timeout(task, result)
             except Exception as e:
                 return task.callback(1, 'exception during on_timeout: %s' % e)
         if on_error:
             try:
+                log.debug('task %s on_error', fn)
                 return on_error(task, result)
             except Exception as e:
                 return task.callback(1, 'exception during on_error: %s' % e)
+    log.debug('task %s default completion, rc=%s', fn, rc)
     task.callback(rc, result)

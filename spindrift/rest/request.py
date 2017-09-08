@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 
 class RESTRequest(object):
-    ''' First parameter passed to rest-handler routines
+    """ First parameter passed to rest-handler routines
 
         When a rest.RESTHandler parses a new HTTP document, the document is matched
         to a function using a rest_mapper.RESTMapper. This object is the first argument
@@ -30,28 +30,12 @@ class RESTRequest(object):
         is the content as a json document, the query string, or the content as a query
         string, any of which is cast to a dict (or possibly a list, in the first case).
 
-        These methods are available:
+        Notes:
 
-            delay - don't respond immediately to the connection peer, but wait for a
-                    subsequent call to respond. this is helpful for async calls from
-                    the rest handler function.
-
-                    if this is not called, the response from the rest handler function is
-                    treated as a response (as thought it were sent as *args to respond).
-
-            respond(code=200, content='', headers=None, message=None, content_type=None) -
-                    respond to the connection peer.
-
-                    if content is one of type (dict, list, float, bool, int), then
-                    content_type is changed to applicaton/json and the content translated
-                    with json.dumps.
-
-                    message will be derived for certain common codes. headers will generally
-                    be automatically created by RESTHandler and HTTPHandler.
-
-                    if the first parameter is not an int, then it is assumed that code=200,
-                    and the first parameter is really content.
-    '''
+            1. The attribute 'cleanup' can be set with one or more callables, which
+               will be executed at request.respond. The callables will be invoked
+               in the order assigned.
+    """
     def __init__(self, handler):
         self.handler = handler
         self.is_delayed = False
@@ -70,14 +54,34 @@ class RESTRequest(object):
         else:
             super(RESTRequest, self).__setattr__(name, value)
 
-    @property
-    def connection_id(self):
-        return self.handler.id
-
     def delay(self):
+        """ Don't respond immediately to the connection peer.
+
+            This is helpful for async calls from the rest handler function.
+
+            If this is not called, the response from the rest handler function is
+            treated as a response (as thought it were sent as *args to respond).
+
+            Idempotent.
+        """
         self.is_delayed = True
 
     def respond(self, *args, **kwargs):
+        """ Respond to the connection peer.
+
+            respond(code=200, content='', headers=None, message=None, content_type=None) -
+                    respond to the connection peer.
+
+                    if content is one of type (dict, list, float, bool, int), then
+                    content_type is changed to applicaton/json and the content translated
+                    with json.dumps.
+
+                    message will be derived for certain common codes. headers will generally
+                    be automatically created by RESTHandler and HTTPHandler.
+
+                    if the first parameter is not an int, then it is assumed that code=200,
+                    and the first parameter is really content.
+        """
         if len(args) > 0 and not isinstance(args[0], int):
             self._respond(200, *args, **kwargs)
         else:
@@ -103,7 +107,7 @@ class RESTRequest(object):
             args - None, scalar, tuple or list
                 Positional argments to be passed to fn.
 
-            kwargs - None or dict
+            kwargs - None or dict (see Note 2)
                 Keyword argments to be passed to fn.
 
             on_success - callable
@@ -129,7 +133,7 @@ class RESTRequest(object):
                 if specified and rc == 0 and result is None:
                     callback(404)
 
-            task - boolean
+            task - boolean (See Note 3)
                 if True replace callback with Task in fn
 
         Notes:
@@ -142,6 +146,13 @@ class RESTRequest(object):
 
                     rc - 0 for success, non-zero for error
                     result - function response on success, message on error
+
+            2. If the attribute 'cursor' is found, and the specified fn has a
+               'cursor' in the signature, but not in kwargs, the cursor attribute
+               is added to the kwargs before calling fn.
+
+            3. If task is True, then the 'cursor' attribute, if available, is
+               added to the Task constructor.
 
         Example:
 
@@ -162,9 +173,9 @@ class RESTRequest(object):
 
         def cb(rc, result):
             if rc == 0:
-                _callback(self, result, on_success, on_success_code, on_none, on_none_404)
+                _callback(self, fn, result, on_success, on_success_code, on_none, on_none_404)
             else:
-                _callback_error(self, result, on_error)
+                _callback_error(self, fn, result, on_error)
 
         if args is None:
             args = ()
@@ -184,6 +195,7 @@ class RESTRequest(object):
                     kwargs['cursor'] = self.cursor
 
         try:
+            log.debug('cid=%s, calling %s', self.id, fn)
             fn(cb, *args, **kwargs)
         except Exception:
             log.exception('cid=%s: exception on call')
@@ -204,30 +216,36 @@ class RESTRequest(object):
         return self._json
 
 
-def _callback(request, result, on_success, on_success_code, on_none, on_none_404):
+def _callback(request, fn, result, on_success, on_success_code, on_none, on_none_404):
     if result is None and on_none_404:
+        log.debug('cid=%s, callback on_none_404', request.id)
         request.respond(404)
     elif result is None and on_none:
         try:
+            log.debug('cid=%s, callback %s on_none', request.id, fn)
             on_none(request, None)
         except Exception:
             log.exception('running on_none callback')
             request.respond(500)
     elif on_success_code:
+        log.debug('cid=%s, callback %s on_success_code', request.id, fn)
         request.respond(on_success_code)
     elif on_success:
         try:
+            log.debug('cid=%s, callback %s on_success', request.id, fn)
             on_success(request, result)
         except Exception:
             log.exception('running on_success callback')
             request.respond(500)
     else:
+        log.debug('cid=%s, callback %s default success', request.id, fn)
         request.respond(200, request.response or result)
 
 
-def _callback_error(request, result, on_error):
+def _callback_error(request, fn, result, on_error):
     if on_error:
         try:
+            log.debug('cid=%s, callback %s on_error', request.id, fn)
             on_error(request, result)
         except Exception:
             log.exception('running on_error callback: %s', result)
