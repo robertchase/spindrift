@@ -87,12 +87,8 @@ class ConnectContext(object):
 
 
 class ConnectHandler(HTTPHandler):
-    '''
-        manage outgoing http request as defined by context
-
-        default behavior is defined by setup and evaluate. override these methods to change the shape
-        of the outgoing message or handling of incoming message.
-    '''
+    """ Manage outgoing http request as defined by context
+    """
 
     def on_init(self):
         self.is_done = False

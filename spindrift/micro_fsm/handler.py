@@ -97,22 +97,28 @@ class MysqlHandler(mysql_connection.MysqlHandler):
         self.timer = context.timer.add(self.on_timeout, context.timeout * 1000).start()
 
     def on_open(self):
-        log.info('mysql open: mid=%d', self.id)
+        log.debug('database open: did=%d', self.id)
 
     def on_timeout(self):
-        log.warning('mysql timeout: mid=%d', self.id)
+        log.warning('database timeout: did=%d', self.id)
         self.close('timeout')
 
     def on_close(self, reason):
         self.timer.cancel()
-        log.info('mysql close: mid=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
+        log.debug('database close: did=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
 
-    def on_query_start(self, query):
+    def on_transaction_start(self):
+        log.debug('database TRANSACTION START: did=%d', self.id)
+
+    def on_transaction_end(self, end_type):
+        log.debug('database transaction %s: did=%d', end_type, self.id)
+
+    def on_query_start(self):
         self.t_query = time.perf_counter()
-        log.info('mysql query start: mid=%d', self.id)
+        log.debug('database query start: did=%d: %s', self.id, self.raw_query)
 
     def on_query_end(self):
         t = time.perf_counter() - self.t_query
         if t > self.context.long_query:
-            log.warning('mysql long query: mid=%s, t=%.4f: %s', self.id, t, self.raw_query)
-        log.info('mysql query end: mid=%s, t=%.4f', self.id, t)
+            log.warning('mysql long query: did=%s, t=%.4f: %s', self.id, t, self.raw_query)
+        log.debug('database query end: did=%s, t=%.4f', self.id, t)

@@ -1,4 +1,9 @@
+import logging
+
 from spindrift.dao.db import DB
+
+
+log = logging.getLogger(__name__)
 
 
 def content_to_json(*fields, **kwargs):
@@ -57,9 +62,13 @@ def content_to_json(*fields, **kwargs):
                         else:
                             kwargs[fname] = value
             except KeyError as e:
-                return request.respond(400, 'Missing required key: %s' % str(e))
+                msg = 'Missing required key: %s' % str(e)
+                log.warning('content error, cid=%s: %s', request.id, msg)
+                return request.respond(400, msg)
             except Exception as e:
-                return request.respond(400, "Unable to read field '%s': %s" % (fname, e.message))
+                msg = "Unable to read field '%s': %s" % (fname, e.message)
+                log.warning('content error, cid=%s: %s', request.id, msg)
+                return request.respond(400, msg)
             return rest_handler(request, *args, **kwargs)
         return inner
     return __content_to_json

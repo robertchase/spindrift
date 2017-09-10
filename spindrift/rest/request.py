@@ -187,15 +187,17 @@ class RESTRequest(object):
         self.delay()
 
         if task:
-            cb = Task(cb, getattr(self, 'cursor'))
+            cb = Task(cb, self.id, getattr(self, 'cursor'))
+            as_task = 'as task'
         else:
             """ inspect for 'cursor' in fn's parameters, and add if necessary and available """
             if hasattr(self, 'cursor') and 'cursor' not in kwargs:
                 if 'cursor' in inspect.signature(fn).parameters:
                     kwargs['cursor'] = self.cursor
+            as_task = ''
 
         try:
-            log.debug('cid=%s, calling %s', self.id, fn)
+            log.debug('request.call, cid=%s fn=%s %s', self.id, fn, as_task)
             fn(cb, *args, **kwargs)
         except Exception:
             log.exception('cid=%s: exception on call')
@@ -218,27 +220,27 @@ class RESTRequest(object):
 
 def _callback(request, fn, result, on_success, on_success_code, on_none, on_none_404):
     if result is None and on_none_404:
-        log.debug('cid=%s, callback on_none_404', request.id)
+        log.debug('request.callback, cid=%s, on_none_404', request.id)
         request.respond(404)
     elif result is None and on_none:
         try:
-            log.debug('cid=%s, callback %s on_none', request.id, fn)
+            log.debug('request.callback, cid=%s, on_none fn=%s', request.id, on_none)
             on_none(request, None)
         except Exception:
             log.exception('running on_none callback')
             request.respond(500)
     elif on_success_code:
-        log.debug('cid=%s, callback %s on_success_code', request.id, fn)
+        log.debug('request.callback, cid=%s, on_success_code code=%s', request.id, on_success_code)
         request.respond(on_success_code)
     elif on_success:
         try:
-            log.debug('cid=%s, callback %s on_success', request.id, fn)
+            log.debug('request.callback, cid=%s, on_success fn=%s', request.id, on_success)
             on_success(request, result)
         except Exception:
             log.exception('running on_success callback')
             request.respond(500)
     else:
-        log.debug('cid=%s, callback %s default success', request.id, fn)
+        log.debug('request.callback, cid=%s, default success', request.id)
         request.respond(200, request.response or result)
 
 

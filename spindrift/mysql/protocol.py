@@ -114,7 +114,7 @@ class Protocol(object):
         if self._callback and self._query:
             if self._transaction_start:
                 return 'transaction'
-            self.connection.on_query_start(self._query)
+            self.connection.on_query_start()
             self._execute_command(COMMAND.COM_QUERY, self._query)
             self._query = None
             return 'sent'
@@ -141,12 +141,14 @@ class Protocol(object):
 
     def act_transaction(self):
         self._transaction_start = False
+        self.connection.on_transaction_start()
         self._execute_command(COMMAND.COM_QUERY, 'START TRANSACTION')
 
     def act_transaction_end(self):
         self._query_status = self._ok
         self.connection.on_query_end()
         if self._transaction_end:
+            self.connection.on_transaction_end(self._transaction_end)
             self._execute_command(COMMAND.COM_QUERY, self._transaction_end)
             self._transaction_end = None
         else:

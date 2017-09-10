@@ -2,6 +2,7 @@ from importlib import import_module
 import logging
 import logging.config
 import platform
+import signal
 import uuid
 
 from spindrift.dao.db import DB
@@ -66,18 +67,29 @@ def _load(path):
     return p
 
 
-def setup_log(micro, stdout):
+def setup_signal():
 
-    try:
-        config = micro.config.log
-    except Exception:
-        name = 'MICRO'
-        level = 'INFO'
-        stdout = True
-    else:
-        name = config.name
-        level = config.level.upper()
-        stdout = stdout
+    def toggle_debug(signal, frame):
+        logger = logging.getLogger()
+        if logger.getEffectiveLevel() == logging.INFO:
+            level = logging.DEBUG
+            name = 'DEBUG'
+        else:
+            level = logging.INFO
+            name = 'INFO'
+
+        logger.setLevel(level)
+        log.info('log level set to %s', name)
+
+    signal.signal(signal.SIGUSR1, toggle_debug)
+
+
+def setup_log(micro):
+
+    config = micro.config.log
+    name = config.name
+    level = config.level.upper()
+    stdout = config.is_stdout
 
     conf = {
         'version': 1,
@@ -123,6 +135,9 @@ def setup_log(micro, stdout):
         conf['handlers']['default'] = conf['handlers']['syslog']
 
     logging.config.dictConfig(conf)
+    log.info('log level set to %s', level)
+
+    setup_signal()
 
 
 def setup_database(micro):
@@ -261,8 +276,6 @@ if __name__ == '__main__':
     aparser.add_argument('--no-config', dest='no_config', default=False, action='store_true', help="don't use a config file")
     aparser.add_argument('--micro', default='micro', help='micro description file')
     aparser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
-
-    aparser.add_argument('-s', '--stdout', action='store_true', default=False, help='display messages to stdout')
     args = aparser.parse_args()
 
     p = parser.parse(args.micro)
@@ -272,7 +285,7 @@ if __name__ == '__main__':
         print(p.config)
     else:
         module.micro.config = p.config
-        setup_log(module.micro, args.stdout)
+        setup_log(module.micro)
         setup_database(module.micro)
         setup_servers(module.micro, p.servers)
         setup_connections(module.micro, p.connections)

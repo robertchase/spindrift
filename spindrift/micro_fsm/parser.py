@@ -83,7 +83,8 @@ class Parser(object):
         self.setup = None
         self.teardown = None
         self.database = None
-        self.log = None
+        self.log = Log()
+        self.add_log_config()
         self.connections = {}
         self._config_servers = {}
         self.servers = {}
@@ -124,13 +125,14 @@ class Parser(object):
             config.default = config.validate(config.default)
         self._add_config(config.name, **config.kwargs)
 
+    def add_log_config(self):
+        self._add_config('log.name', value=self.log.name)
+        self._add_config('log.level', value=self.log.level)
+        self._add_config('log.is_stdout', value=self.log.is_stdout, validator=config_file.validate_bool)
+
     def act_add_log(self):
-        if self.log is not None:
-            self.error = 'duplicate LOG directive'
-        else:
-            self.log = Log(*self.args, **self.kwargs)
-            self._add_config('log.name', value=self.log.name)
-            self._add_config('log.level', value=self.log.level)
+        self.log = Log(*self.args, **self.kwargs)
+        self.add_log_config()
 
     def act_add_connection(self):
         connection = Connection(*self.args, **self.kwargs)
@@ -248,9 +250,10 @@ class Config(object):
 
 class Log(object):
 
-    def __init__(self, name, level='info'):
+    def __init__(self, name='MICRO', level='debug', is_stdout=True):
         self.name = name
         self.level = level
+        self.is_stdout = is_stdout
 
 
 class Server(object):
