@@ -106,6 +106,7 @@ class Network(object):
             if e.errno == errno.EINPROGRESS:
                 h._register(selectors.EVENT_WRITE, h._on_delayed_connect)
             else:
+                h.on_fail(e.strerror)
                 h.close('host=%s, port=%s, error=%s' % (host, port, e.strerror))
         else:
             h._on_connect(self)
