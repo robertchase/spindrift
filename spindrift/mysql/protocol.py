@@ -56,7 +56,7 @@ class Protocol(object):
         return self.connection.context
 
     def close(self):
-        self.connection.close()
+        self.fsm.handle('close')
 
     @property
     def is_open(self):
@@ -108,7 +108,8 @@ class Protocol(object):
         if not self.context.autocommit:
             self._transaction_start = start_transaction
             self._transaction_end = end_transaction
-        self.fsm.handle('query')
+        if not self.fsm.handle('query'):
+            callback(1, 'cursor unable to execute query')
 
     def act_query(self):
         if self._callback and self._query:

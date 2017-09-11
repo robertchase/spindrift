@@ -140,6 +140,10 @@ def setup_log(micro):
     setup_signal()
 
 
+def _fsm_trace(s, e, d, i):
+    log.debug('mysql fsm s=%s, e=%s, is_internal=%s', s, e,  i)
+
+
 def setup_database(micro):
     try:
         db = micro.config.db
@@ -155,6 +159,7 @@ def setup_database(micro):
             port=db.port,
             isolation=db.isolation,
             handler=MysqlHandler,
+            fsm_trace=_fsm_trace if db.fsm_trace else None,
         )
         DB.context.timer = micro.timer
         DB.context.timeout = db.timeout

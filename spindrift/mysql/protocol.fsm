@@ -1,6 +1,7 @@
 STATE init
     EVENT packet greeting
     EVENT query
+    EVENT close close
 
 STATE greeting
     ENTER parse_greeting

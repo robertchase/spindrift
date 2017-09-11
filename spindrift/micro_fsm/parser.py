@@ -127,7 +127,7 @@ class Parser(object):
 
     def add_log_config(self):
         self._add_config('log.name', value=self.log.name)
-        self._add_config('log.level', value=self.log.level)
+        self._add_config('log.level', value=self.log.level, env='SPINDRIFT_LOG_LEVEL')
         self._add_config('log.is_stdout', value=self.log.is_stdout, validator=config_file.validate_bool)
 
     def act_add_log(self):
@@ -164,6 +164,7 @@ class Parser(object):
             self._add_config('db.isolation', value=database.isolation)
             self._add_config('db.timeout', value=database.timeout, validator=float)
             self._add_config('db.long_query', value=database.long_query, validator=float)
+            self._add_config('db.fsm_trace', value=database.fsm_trace, validator=config_file.validate_bool, env='SPINDRIFT_DB_FSM_TRACE')
 
     def act_add_header(self):
         header = Header(*self.args, **self.kwargs)
@@ -296,7 +297,7 @@ class Method(object):
 
 class Database(object):
 
-    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', handler=None, timeout=60.0, long_query=0.5):
+    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', handler=None, timeout=60.0, long_query=0.5, fsm_trace=False):
         self.is_active = is_active
         self.user = user
         self.password = password
@@ -306,6 +307,7 @@ class Database(object):
         self.isolation = isolation
         self.timeout = float(timeout)
         self.long_query = float(long_query)
+        self.fsm_trace = fsm_trace
 
 
 class Connection(object):

@@ -27,7 +27,7 @@ def create(**actions):
   S_query_descriptors=STATE('query_descriptors')
   S_query_fields=STATE('query_fields')
   S_close=STATE('close',enter=actions['close'])
-  S_init.set_events([EVENT('packet',[], S_greeting),EVENT('query',[]),])
+  S_init.set_events([EVENT('packet',[], S_greeting),EVENT('query',[]),EVENT('close',[], S_close),])
   S_greeting.set_events([EVENT('done',[], S_authenticate),EVENT('query',[]),EVENT('close',[], S_close),])
   S_authenticate.set_events([EVENT('sent',[]),EVENT('ok',[actions['parse_auth_response']]),EVENT('done',[], S_autocommit),EVENT('query',[]),EVENT('close',[], S_close),])
   S_autocommit.set_events([EVENT('ok',[], S_isolation),EVENT('close',[], S_close),])

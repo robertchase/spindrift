@@ -106,6 +106,10 @@ class MysqlHandler(mysql_connection.MysqlHandler):
     def on_close(self, reason):
         self.timer.cancel()
         log.debug('database close: did=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
+        super(MysqlHandler, self).on_close(reason)
+
+    def on_fail(self, message):
+        log.warning('database connection failed, did=%s: %s', self.id, message)
 
     def on_transaction_start(self):
         log.debug('database TRANSACTION START: did=%d', self.id)
