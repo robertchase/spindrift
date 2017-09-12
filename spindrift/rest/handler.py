@@ -47,7 +47,9 @@ class RESTHandler(http.HTTPHandler):
             request = rest_request.RESTRequest(self)
             request = self.on_rest_request(request)
             result = self._rest_handler(request, *self._groups)
-            if request.is_delayed:
+            if request.is_done:  # already responded
+                pass
+            elif request.is_delayed:
                 request.handler.quiesce()  # stop reading in case another request is pipelined (see on_send_complete)
             else:
                 request.respond(result)
