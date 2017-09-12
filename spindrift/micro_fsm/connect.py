@@ -179,5 +179,6 @@ class MicroResource(object):
         self.is_form = is_form
         self.required = required
         self.optional = optional
+        self.cid = 0
 
         self.substitution = [t[1] for t in string.Formatter().parse(path) if t[1] is not None]  # grab substitution names

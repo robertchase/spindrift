@@ -3,15 +3,11 @@ from spindrift.mysql.protocol import Protocol
 import spindrift.network as network
 
 
-mod = {'_CONNECTIONCOUNT': 0}
-
-
 class MysqlHandler(network.Handler):
 
     def on_init(self):
         self._protocol = Protocol(self)
         self._cursor = Cursor(self._protocol)
-        self.id = mod['_CONNECTIONCOUNT'] = mod['_CONNECTIONCOUNT'] + 1
 
     @property
     def cursor(self):

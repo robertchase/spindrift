@@ -247,11 +247,12 @@ def _callback(request, fn, result, on_success, on_success_code, on_none, on_none
 def _callback_error(request, fn, result, on_error):
     if on_error:
         try:
-            log.debug('cid=%s, callback %s on_error', request.id, fn)
+            log.debug('request.callback cid=%s, on_error fn=%s', request.id, on_error)
             on_error(request, result)
         except Exception:
             log.exception('running on_error callback: %s', result)
             request.respond(500)
     else:
+        log.debug('request.callback cid=%s, default error', request.id)
         log.warning('cid=%s, error: %s', request.id, result)
         request.respond(500)

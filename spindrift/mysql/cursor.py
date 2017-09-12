@@ -8,6 +8,12 @@ class Cursor(object):
         self._transaction_commit = False
         self._transaction_rollback = False
 
+    def __setattr__(self, name, value):
+        if name == 'cid':
+            self.protocol.connection.cid = value
+        else:
+            super(Cursor, self).__setattr__(name, value)
+
     def close(self):
         self.protocol.close()
 

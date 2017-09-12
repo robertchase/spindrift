@@ -95,34 +95,35 @@ class MysqlHandler(mysql_connection.MysqlHandler):
         super(MysqlHandler, self).on_init()
         context = self.context
         self.timer = context.timer.add(self.on_timeout, context.timeout * 1000).start()
+        self.cid = 0
 
     def on_open(self):
-        log.debug('database open: did=%d', self.id)
+        log.debug('database open: cid=%s did=%d', self.cid, self.id)
 
     def on_timeout(self):
-        log.warning('database timeout: did=%d', self.id)
+        log.warning('database timeout: cid=%s did=%d', self.cid, self.id)
         self.close('timeout')
 
     def on_close(self, reason):
         self.timer.cancel()
-        log.debug('database close: did=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
+        log.debug('database close: cid=%s did=%s, reason=%s, t=%.4f, rx=%d, tx=%d', self.cid, self.id, reason, time.perf_counter() - self.t_init, self.rx_count, self.tx_count)
         super(MysqlHandler, self).on_close(reason)
 
     def on_fail(self, message):
-        log.warning('database connection failed, did=%s: %s', self.id, message)
+        log.warning('database connection failed, cid=%s did=%s: %s', self.cid, self.id, message)
 
     def on_transaction_start(self):
-        log.debug('database TRANSACTION START: did=%d', self.id)
+        log.debug('database TRANSACTION START: cid=%s did=%d', self.cid, self.id)
 
     def on_transaction_end(self, end_type):
-        log.debug('database transaction %s: did=%d', end_type, self.id)
+        log.debug('database transaction %s: cid=%s did=%d', end_type, self.cid, self.id)
 
     def on_query_start(self):
         self.t_query = time.perf_counter()
-        log.debug('database query start: did=%d: %s', self.id, self.raw_query)
+        log.debug('database query start: cid=%s did=%d: %s', self.cid, self.id, self.raw_query)
 
     def on_query_end(self):
         t = time.perf_counter() - self.t_query
         if t > self.context.long_query:
-            log.warning('mysql long query: did=%s, t=%.4f: %s', self.id, t, self.raw_query)
-        log.debug('database query end: did=%s, t=%.4f', self.id, t)
+            log.warning('mysql long query: cid=%s did=%s, t=%.4f: %s', self.cid, self.id, t, self.raw_query)
+        log.debug('database query end: cid=%s did=%s, t=%.4f', self.cid, self.id, t)

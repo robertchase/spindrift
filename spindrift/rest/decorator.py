@@ -84,6 +84,7 @@ def db_cursor(rest_handler):
     """
     def inner(request, *args, **kwargs):
         cursor = DB.cursor
+        cursor.cid = request.id
         request.cursor = cursor
         request.cleanup = cursor.close
         request.delay()
