@@ -1,8 +1,7 @@
-import inspect
 import json
 import urllib.parse as urlparse
 
-from spindrift.task import Task
+from spindrift.task import Task, inspect_parameters
 
 
 import logging
@@ -96,7 +95,7 @@ class RESTRequest(object):
             for cleanup in self._cleanup[::-1]:
                 cleanup()
 
-    def call(self, fn, args=None, kwargs=None, on_success=None, on_success_code=None, on_error=None, on_none=None, on_none_404=False, task=False):
+    def call(self, fn, args=None, kwargs=None, on_success=None, on_success_code=None, on_error=None, on_none=None, on_none_404=False):
         """ Call an async function.
 
         Allows for flexible handling of the return states of async function calls.
@@ -133,9 +132,6 @@ class RESTRequest(object):
                 if specified and rc == 0 and result is None:
                     callback(404)
 
-            task - boolean (See Note 3)
-                if True replace callback with Task in fn
-
         Notes:
 
             1.  An async function is structured like this:
@@ -151,8 +147,9 @@ class RESTRequest(object):
                'cursor' in the signature, but not in kwargs, the cursor attribute
                is added to the kwargs before calling fn.
 
-            3. If task is True, then the 'cursor' attribute, if available, is
-               added to the Task constructor.
+            3. If the first parameter of fn (from inspection) is named 'task', then
+               a spindrift.Task object is passed instead of a callable. If available,
+               the 'cursor' attribute is added to the Task.
 
         Example:
 
@@ -186,18 +183,15 @@ class RESTRequest(object):
 
         self.delay()
 
+        task, cursor = inspect_parameters(fn, kwargs)
+
         if task:
             cb = Task(cb, self.id, getattr(self, 'cursor'))
-            as_task = 'as task'
-        else:
-            """ inspect for 'cursor' in fn's parameters, and add if necessary and available """
-            if hasattr(self, 'cursor') and 'cursor' not in kwargs:
-                if 'cursor' in inspect.signature(fn).parameters:
-                    kwargs['cursor'] = self.cursor
-            as_task = ''
+        elif cursor:
+            kwargs['cursor'] = getattr(self, 'cursor')
 
         try:
-            log.debug('request.call, cid=%s fn=%s %s', self.id, fn, as_task)
+            log.debug('request.call, cid=%s fn=%s %s', self.id, fn, 'as task' if task else '')
             fn(cb, *args, **kwargs)
         except Exception:
             log.exception('cid=%s: exception on call')

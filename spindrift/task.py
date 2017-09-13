@@ -26,11 +26,14 @@ class Task(object):
             cleanup()
         return self._callback
 
-    def call(self, fn, args=None, kwargs=None, on_success=None, on_error=None, on_timeout=None, task=False):
+    def call(self, fn, args=None, kwargs=None, on_success=None, on_none=None, on_error=None, on_timeout=None):
         self.is_done = False
 
         def cb(rc, result):
-            _callback(self, fn, rc, result, on_success, on_error, on_timeout)
+            if rc == 0:
+                _callback(self, fn, result, on_success, on_none)
+            else:
+                _callback_error(self, fn, result, on_error, on_timeout)
             self.is_done = True
 
         if args is None:
@@ -41,38 +44,65 @@ class Task(object):
         if kwargs is None:
             kwargs = {}
 
+        task, cursor = inspect_parameters(fn, kwargs)
+
         if task:
             cb = Task(cb, self.cid, self.cursor)
-        else:
-            # pass along the cursor if available in task and needed in fn
-            if hasattr(self, 'cursor') and 'cursor' not in kwargs:
-                if 'cursor' in inspect.signature(fn).parameters:
-                    kwargs['cursor'] = self.cursor
+        elif cursor:
+            kwargs['cursor'] = getattr(self, 'cursor')
 
-        log.debug('task.call %s', fn)
+        log.debug('task.call fn=%s %s', fn, 'as task' if task else '')
         fn(cb, *args, **kwargs)
 
 
-def _callback(task, fn, rc, result, on_success, on_error, on_timeout):
-    if rc == 0:
-        if on_success:
-            try:
-                log.debug('task.callback, cid=%s, on_success fn=%s', task.cid, on_success)
-                return on_success(task, result)
-            except Exception as e:
-                return task.callback(1, 'exception during on_success: %s' % e)
+def inspect_parameters(fn, kwargs):
+
+    task = False
+    cursor = False
+
+    # get a list of function parameters
+    sig = inspect.signature(fn).parameters
+
+    # is the first parameter named 'task'
+    if [p for p in sig.values()][0].name == 'task':
+        task = True
     else:
-        if on_timeout and result == 'timeout':
-            try:
-                log.debug('task.callback, cid=%s, on_timeout fn=%s', task.cid, on_timeout)
-                return on_timeout(task, result)
-            except Exception as e:
-                return task.callback(1, 'exception during on_timeout: %s' % e)
-        if on_error:
-            try:
-                log.debug('task.callback, cid=%s, on_error fn=%s', task.cid, on_error)
-                return on_error(task, result)
-            except Exception as e:
-                return task.callback(1, 'exception during on_error: %s' % e)
-    log.debug('task.callback, cid=%s, default callback, rc=%s', task.cid, fn, rc)
-    task.callback(rc, result)
+        # is 'cursor' one of the parameters (and not already a kwarg)
+        if 'cursor' in sig and 'cursor' not in kwargs:
+            cursor = True
+
+    return task, cursor
+
+
+def _callback(task, fn, result, on_success, on_none):
+    if on_none and result is None:
+        try:
+            log.debug('task.callback, cid=%s, on_none fn=%s', task.cid, on_none)
+            return on_none(task, result)
+        except Exception as e:
+            return task.callback(1, 'exception during on_none: %s' % e)
+    if on_success:
+        try:
+            log.debug('task.callback, cid=%s, on_success fn=%s', task.cid, on_success)
+            return on_success(task, result)
+        except Exception as e:
+            return task.callback(1, 'exception during on_success: %s' % e)
+    log.debug('task.callback, cid=%s, default success callback', task.cid)
+    task.callback(0, result)
+
+
+def _callback_error(task, fn, result, on_error, on_timeout):
+    if on_timeout and result == 'timeout':
+        try:
+            log.debug('task.callback, cid=%s, on_timeout fn=%s', task.cid, on_timeout)
+            return on_timeout(task, result)
+        except Exception as e:
+            return task.callback(1, 'exception during on_timeout: %s' % e)
+    if on_error:
+        try:
+            log.debug('task.callback, cid=%s, on_error fn=%s', task.cid, on_error)
+            return on_error(task, result)
+        except Exception as e:
+            return task.callback(1, 'exception during on_error: %s' % e)
+    log.debug('task.callback, cid=%s, default error callback', task.cid)
+    task.callback(1, result)
