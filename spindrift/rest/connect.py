@@ -80,7 +80,7 @@ class ConnectContext(object):
         self.headers = headers
         self.body = body
         self.is_json = is_json
-        self.is_debug = False
+        self.is_verbose = False
         self.timeout = timeout
         self.wrapper = wrapper
         self.kwargs = kwargs

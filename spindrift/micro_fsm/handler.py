@@ -16,18 +16,18 @@ class OutboundHandler(ConnectHandler):
     def after_init(self):
         kwargs = self.context.kwargs
         for k in kwargs.keys():
-            if k not in ('is_debug', 'trace'):
+            if k not in ('is_verbose', 'trace'):
                 raise TypeError("connect() got an unexpected keyword argument '%s'", k)
-        if kwargs.get('is_debug', False):
-            log.debug('starting outbound connection, oid=%s: %s %s', self.id, self.context.method, self.context.url)
+        if kwargs.get('is_verbose', False):
+            log.info('starting outbound connection, oid=%s: %s %s', self.id, self.context.method, self.context.url)
 
     def on_open(self):
-        if self.context.is_debug:
+        if self.context.is_verbose:
             log.info('open oid=%s: %s', self.id, self.full_address())
 
     def on_close(self, reason):
         kwargs = self.context.kwargs
-        if kwargs.get('is_debug', False):
+        if kwargs.get('is_verbose', False):
             now = time.perf_counter()
             msg = 'close oid=%s, reason=%s, opn=%.4f,' % (
                 self.id,

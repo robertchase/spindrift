@@ -1,4 +1,3 @@
-import functools
 import logging
 import string
 
@@ -13,25 +12,27 @@ class MicroConnect(object):
 
     def __init__(
                 self,
+                name,
                 network,
                 timer,
                 url,
                 headers,
                 is_json,
-                is_debug,
+                is_verbose,
                 timeout,
                 handler,
                 wrapper,
                 setup,
                 is_form,
             ):
+        self.name = name
         self.network = network
         self.timer = timer
         self.url = url
         self._last_url = None
         self.headers = headers
         self.is_json = is_json
-        self.is_debug = is_debug
+        self.is_verbose = is_verbose
         self.timeout = timeout
         self.handler = handler or MicroHandler
         self.wrapper = wrapper
@@ -69,7 +70,7 @@ class MicroConnect(object):
                 method,
                 headers,
                 is_json,
-                is_debug,
+                is_verbose,
                 trace,
                 timeout,
                 handler,
@@ -87,7 +88,7 @@ class MicroConnect(object):
             method,
             _headers,
             is_json if is_json is not None else self.is_json,
-            is_debug if is_debug is not None else self.is_debug,
+            is_verbose if is_verbose is not None else self.is_verbose,
             trace,
             timeout or self.timeout,
             handler or self.handler,
@@ -97,52 +98,64 @@ class MicroConnect(object):
             required or [],
             optional or {},
         )
-        setattr(self.resource, name, functools.partial(self._call, resource))
+        setattr(self.resource, name, Resource(self, resource))
         return resource
 
-    def _call(self, resource, callback, is_debug=None, trace=None, *args, **kwargs):
-        if len(args) != len(resource.substitution + resource.required):
+
+class Resource(object):
+
+    def __init__(self, connection, resource):
+        self.connection = connection
+        self.resource = resource
+
+    def __repr__(self):
+        return 'connection.%s.resource.%s' % (self.connection.name, self.resource.name)
+
+    def __call__(self, callback, *args, **kwargs):
+        is_verbose = kwargs.pop('is_verbose', None)
+        trace = kwargs.pop('trace', None)
+        if len(args) != len(self.resource.substitution + self.resource.required):
             raise Exception('Incorrect number of required arguments')
         for k in kwargs.keys():
-            if k not in resource.optional:
+            if k not in self.resource.optional:
                 raise Exception('Invalid keyword argument: %s' % k)
 
-        path = resource.path
-        if len(resource.substitution):
-            sub, args = args[:len(resource.substitution)], args[len(resource.substitution):]
-            path = path.format(**dict(zip(resource.substitution, sub)))
+        path = self.resource.path
+        if len(self.resource.substitution):
+            sub, args = args[:len(self.resource.substitution)], args[len(self.resource.substitution):]
+            path = path.format(**dict(zip(self.resource.substitution, sub)))
 
-        body = dict(zip(resource.required, args)) if len(args) else {}
+        body = dict(zip(self.resource.required, args)) if len(args) else {}
         body.update(kwargs)
 
-        headers = {n: v() if callable(v) else v for n, v in resource.headers.items()}
+        headers = {n: v() if callable(v) else v for n, v in self.resource.headers.items()}
 
-        if resource.setup:
-            path, headers, body = resource.setup(path, headers, body)
+        if self.resource.setup:
+            path, headers, body = self.resource.setup(path, headers, body)
 
-        if not self._parse_url():
+        if not self.connection._parse_url():
             return callback(1, 'unable to parse resource url')
 
         return connect_parsed(
-            self.network,
-            self.timer,
+            self.connection.network,
+            self.connection.timer,
             callback,
-            self._url + resource.path,
-            self.host,
-            self.address,
-            self.port,
-            self.initial_path + resource.path,
-            self.query,
-            self.is_ssl,
-            method=resource.method,
+            self.connection._url + self.resource.path,
+            self.connection.host,
+            self.connection.address,
+            self.connection.port,
+            self.connection.initial_path + self.resource.path,
+            self.connection.query,
+            self.connection.is_ssl,
+            method=self.resource.method,
             headers=headers,
             body=body,
-            is_json=resource.is_json,
-            timeout=resource.timeout,
-            wrapper=resource.wrapper,
-            handler=resource.handler,
-            is_debug=is_debug or resource.is_debug,
-            trace=trace or resource.trace,
+            is_json=self.resource.is_json,
+            timeout=self.resource.timeout,
+            wrapper=self.resource.wrapper,
+            handler=self.resource.handler,
+            is_verbose=is_verbose or self.resource.is_verbose,
+            trace=trace or self.resource.trace,
         )
 
 
@@ -155,7 +168,7 @@ class MicroResource(object):
                 method,
                 headers,
                 is_json,
-                is_debug,
+                is_verbose,
                 trace,
                 timeout,
                 handler,
@@ -170,7 +183,7 @@ class MicroResource(object):
         self.method = method
         self.headers = headers
         self.is_json = is_json
-        self.is_debug = is_debug
+        self.is_verbose = is_verbose
         self.trace = trace
         self.timeout = timeout
         self.handler = handler

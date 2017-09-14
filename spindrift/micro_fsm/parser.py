@@ -146,7 +146,7 @@ class Parser(object):
             if connection.url is not None:
                 self._add_config('connection.%s.url' % connection.name, value=connection.url)
             self._add_config('connection.%s.is_active' % connection.name, value=True, validator=config_file.validate_bool)
-            self._add_config('connection.%s.is_debug' % connection.name, value=connection.is_debug, validator=config_file.validate_bool)
+            self._add_config('connection.%s.is_verbose' % connection.name, value=connection.is_verbose, validator=config_file.validate_bool)
             self._add_config('connection.%s.timeout' % connection.name, value=connection.timeout, validator=float)
 
     def act_add_database(self):
@@ -204,8 +204,8 @@ class Parser(object):
         else:
             self.connection.add_resource(resource)
             self._add_config(
-                'connection.%s.resource.%s.is_debug' % (self.connection.name, resource.name),
-                value=config_file.validate_bool(resource.is_debug) if resource.is_debug is not None else None,
+                'connection.%s.resource.%s.is_verbose' % (self.connection.name, resource.name),
+                value=config_file.validate_bool(resource.is_verbose) if resource.is_verbose is not None else None,
                 validator=config_file.validate_bool,
             )
 
@@ -312,11 +312,11 @@ class Database(object):
 
 class Connection(object):
 
-    def __init__(self, name, url=None, is_json=True, is_debug=False, timeout=5.0, handler=None, wrapper=None, setup=None, is_form=False, code=None):
+    def __init__(self, name, url=None, is_json=True, is_verbose=True, timeout=5.0, handler=None, wrapper=None, setup=None, is_form=False, code=None):
         self.name = name
         self.url = url
         self.is_json = config_file.validate_bool(is_json)
-        self.is_debug = config_file.validate_bool(is_debug)
+        self.is_verbose = config_file.validate_bool(is_verbose)
         self.timeout = float(timeout)
         self.handler = handler
         self.wrapper = wrapper
@@ -366,12 +366,12 @@ class Header(object):
 
 class Resource(object):
 
-    def __init__(self, name, path, method='GET', is_json=None, is_debug=None, trace=None, timeout=None, handler=None, wrapper=None, setup=None, is_form=None):
+    def __init__(self, name, path, method='GET', is_json=None, is_verbose=None, trace=None, timeout=None, handler=None, wrapper=None, setup=None, is_form=None):
         self.name = name
         self.path = path
         self.method = method
         self.is_json = config_file.validate_bool(is_json) if is_json is not None else None
-        self.is_debug = config_file.validate_bool(is_debug) if is_debug is not None else None
+        self.is_verbose = config_file.validate_bool(is_verbose) if is_verbose is not None else None
         self.trace = config_file.validate_bool(trace) if trace is not None else None
         self.timeout = float(timeout) if timeout is not None else None
         self.handler = handler

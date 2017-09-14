@@ -206,12 +206,13 @@ def setup_connections(micro, connections):
             if value:
                 headers[header.key] = value
         conn = micro_connection.MicroConnect(
+            c.name,
             micro.network,
             micro.timer,
             conf.url if c.url is not None else _import(c.code),
             headers,
             c.is_json,
-            conf.is_debug,
+            conf.is_verbose,
             conf.timeout,
             _import(c.handler) if c.handler else None,
             _import(c.wrapper) if c.wrapper else None,
@@ -231,7 +232,7 @@ def setup_connections(micro, connections):
                 resource.method,
                 resource.headers,
                 resource.is_json,
-                resource.is_debug,
+                resource.is_verbose,
                 resource.trace,
                 resource.timeout,
                 _import(resource.handler) if resource.handler else None,
