@@ -80,8 +80,13 @@ class MicroConnect(object):
                 required,
                 optional,
             ):
+
         _headers = self.headers.copy()
         _headers.update(headers or {})
+
+        if is_form is True:
+            _headers['Content-Type'] = 'application/x-www-form-urlencoded'
+
         resource = MicroResource(
             name,
             path,
@@ -94,7 +99,6 @@ class MicroConnect(object):
             handler or self.handler,
             wrapper or self.wrapper,
             setup or self.setup,
-            is_form if is_form is not None else self.is_form,
             required or [],
             optional or {},
         )
@@ -126,6 +130,7 @@ class Resource(object):
             path = path.format(**dict(zip(self.resource.substitution, sub)))
 
         body = dict(zip(self.resource.required, args)) if len(args) else {}
+        body.update(self.resource.optional)
         body.update(kwargs)
 
         headers = {n: v() if callable(v) else v for n, v in self.resource.headers.items()}
@@ -159,6 +164,10 @@ class Resource(object):
         )
 
 
+def parse_substitution(path):
+    return [t[1] for t in string.Formatter().parse(path) if t[1] is not None]  # grab substitution names
+
+
 class MicroResource(object):
 
     def __init__(
@@ -174,7 +183,6 @@ class MicroResource(object):
                 handler,
                 wrapper,
                 setup,
-                is_form,
                 required,
                 optional,
             ):
@@ -189,9 +197,8 @@ class MicroResource(object):
         self.handler = handler
         self.wrapper = wrapper
         self.setup = setup
-        self.is_form = is_form
         self.required = required
         self.optional = optional
         self.cid = 0
 
-        self.substitution = [t[1] for t in string.Formatter().parse(path) if t[1] is not None]  # grab substitution names
+        self.substitution = parse_substitution(path)

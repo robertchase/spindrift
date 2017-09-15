@@ -2,6 +2,7 @@ import re
 
 import spindrift.config as config_file
 from spindrift.file_util import normalize_path
+from spindrift.micro_fsm.connect import parse_substitution
 from spindrift.micro_fsm.fsm_micro import create as create_machine
 
 import logging
@@ -315,10 +316,12 @@ class Database(object):
 
 class Connection(object):
 
-    def __init__(self, name, url=None, is_json=True, is_verbose=True, timeout=5.0, handler=None, wrapper=None, setup=None, is_form=False, code=None):
+    def __init__(self, name, url=None, is_json=True, is_verbose=True, is_debug=None, timeout=5.0, handler=None, wrapper=None, setup=None, is_form=False, code=None):
         self.name = name
         self.url = url
         self.is_json = config_file.validate_bool(is_json)
+        if is_debug is not None:
+            is_verbose = is_debug  # old-style (not a debug message, so misleading name)
         self.is_verbose = config_file.validate_bool(is_verbose)
         self.timeout = float(timeout)
         self.handler = handler
@@ -369,11 +372,13 @@ class Header(object):
 
 class Resource(object):
 
-    def __init__(self, name, path, method='GET', is_json=None, is_verbose=None, trace=None, timeout=None, handler=None, wrapper=None, setup=None, is_form=None):
+    def __init__(self, name, path, method='GET', is_json=None, is_verbose=None, is_debug=None, trace=None, timeout=None, handler=None, wrapper=None, setup=None, is_form=None):
         self.name = name
         self.path = path
         self.method = method
         self.is_json = config_file.validate_bool(is_json) if is_json is not None else None
+        if is_debug is not None:
+            is_verbose = is_debug  # old-style (not a debug message, so misleading name)
         self.is_verbose = config_file.validate_bool(is_verbose) if is_verbose is not None else None
         self.trace = config_file.validate_bool(trace) if trace is not None else None
         self.timeout = float(timeout) if timeout is not None else None
@@ -387,7 +392,8 @@ class Resource(object):
         self.headers = {}
 
     def __repr__(self):
-        param = [p for p in self.required]
+        param = parse_substitution(self.path)
+        param.extend([p for p in self.required])
         param.extend(['%s=%s' % (o.name, o.default) for o in self.optional.values()])
         return 'resource.%s(%s)' % (self.name, ', '.join(param))
 
