@@ -73,7 +73,8 @@ class Config (object):
         return item
 
     def _define(self, name, value=None, validator=None, env=None):
-        self.ordered_keys.append(name)
+        if name not in self.ordered_keys:
+            self.ordered_keys.append(name)
         item = self._values
         for part in name.split('.'):
             if not isinstance(item._value, dict):
