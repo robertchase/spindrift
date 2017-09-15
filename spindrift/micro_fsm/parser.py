@@ -235,6 +235,9 @@ class Parser(object):
             raise Exception('too many tokens specified')
         self.teardown = self.args[0]
 
+    def show_connections(self):
+        return '\n'.join(str(c) for c in self.connections.values())
+
 
 class Config(object):
 
@@ -329,7 +332,7 @@ class Connection(object):
         self._resource = None
 
     def __repr__(self):
-        return 'Connection[name=%s, url=%s, hdr=%s, res=%s]' % (self.name, self.url, self.headers, self.resources)
+        return '\n'.join(['connection.%s.%s' % (self.name, r) for r in self.resources.values()])
 
     def __contains__(self, name):
         return name in self.resources
@@ -384,7 +387,9 @@ class Resource(object):
         self.headers = {}
 
     def __repr__(self):
-        return 'Resource[name=%s, url=%s, req=%s, opt=%s' % (self.name, self.path, self.required, self.optional)
+        param = [p for p in self.required]
+        param.extend(['%s=%s' % (o.name, o.default) for o in self.optional.values()])
+        return 'resource.%s(%s)' % (self.name, ', '.join(param))
 
     def add_required(self, parameter_name):
         self.required.append(parameter_name)

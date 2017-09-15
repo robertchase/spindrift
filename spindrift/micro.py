@@ -282,6 +282,7 @@ if __name__ == '__main__':
     aparser.add_argument('--no-config', dest='no_config', default=False, action='store_true', help="don't use a config file")
     aparser.add_argument('--micro', default='micro', help='micro description file')
     aparser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
+    aparser.add_argument('-n', '--connections', dest='connections', action='store_true', default=False, help='parse micro and config files and display defined connections')
     args = aparser.parse_args()
 
     p = parser.parse(args.micro)
@@ -289,6 +290,8 @@ if __name__ == '__main__':
         p.config._load(args.config)
     if args.config_only is True:
         print(p.config)
+    elif args.connections:
+        print(p.show_connections())
     else:
         module.micro.config = p.config
         setup_log(module.micro)
