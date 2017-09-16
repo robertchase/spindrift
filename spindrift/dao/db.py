@@ -6,12 +6,9 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 import spindrift.mysql.connection as connection
 
 
-class _DB(object):
+class DB(object):
 
-    def __init__(self):
-        self.context = None
-
-    def setup(
+    def __init__(
                 self,
                 network,
                 user=None,
@@ -53,6 +50,3 @@ class _DB(object):
     @property
     def cursor(self):
         return self.connection.cursor
-
-
-DB = _DB()

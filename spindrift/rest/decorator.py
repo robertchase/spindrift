@@ -5,7 +5,7 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import logging
 
-from spindrift.dao.db import DB
+from spindrift.micro import micro
 
 
 log = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def db_cursor(rest_handler):
         async calls to continue without a premature response.
     """
     def inner(request, *args, **kwargs):
-        cursor = DB.cursor
+        cursor = micro.db.cursor
         cursor.cid = request.id
         request.cursor = cursor
         request.cleanup = cursor.close

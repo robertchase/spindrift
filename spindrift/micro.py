@@ -155,7 +155,7 @@ def setup_database(micro):
     except Exception:
         return
     if db.is_active:
-        DB.setup(
+        micro.db = DB(
             micro.network,
             user=db.user,
             pswd=db.password,
@@ -166,9 +166,10 @@ def setup_database(micro):
             handler=MysqlHandler,
             fsm_trace=_fsm_trace if db.fsm_trace else None,
         )
-        DB.context.timer = micro.timer
-        DB.context.timeout = db.timeout
-        DB.context.long_query = db.long_query
+        context = micro.db.context
+        context.timer = micro.timer
+        context.timeout = db.timeout
+        context.long_query = db.long_query
 
 
 def setup_servers(micro, servers):
