@@ -1,3 +1,6 @@
+# The MIT License (MIT)
+# https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+
 STATE init
     EVENT packet greeting
     EVENT query

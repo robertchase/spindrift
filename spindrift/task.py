@@ -1,3 +1,8 @@
+'''
+The MIT License (MIT)
+
+https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+'''
 import inspect
 import logging
 

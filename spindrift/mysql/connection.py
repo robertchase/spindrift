@@ -1,3 +1,8 @@
+'''
+The MIT License (MIT)
+
+https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+'''
 from spindrift.mysql.cursor import Cursor
 from spindrift.mysql.protocol import Protocol
 import spindrift.network as network

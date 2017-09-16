@@ -1,3 +1,8 @@
+'''
+The MIT License (MIT)
+
+https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+'''
 from spindrift.fsm.fsm_machine import create as create_machine
 
 

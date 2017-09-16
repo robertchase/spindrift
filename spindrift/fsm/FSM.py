@@ -1,3 +1,10 @@
+'''
+The MIT License (MIT)
+
+https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+'''
+
+
 class STATE (object):
 
     def __init__(self, name, enter=None, exit=None):

@@ -1,3 +1,8 @@
+'''
+The MIT License (MIT)
+
+https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+'''
 from importlib import import_module
 import logging
 import logging.config

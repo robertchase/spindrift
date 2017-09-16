@@ -1,3 +1,8 @@
+'''
+The MIT License (MIT)
+
+https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
+'''
 import logging
 import string
 
@@ -46,7 +51,7 @@ class MicroConnect(object):
         if callable(url):
             url = url()
         if url == self._last_url:
-            return  # parsed url is cached
+            return True  # parsed url is cached
         try:
             p = URLParser(url)
         except Exception as e:
