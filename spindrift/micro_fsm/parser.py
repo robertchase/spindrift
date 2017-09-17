@@ -399,8 +399,8 @@ class Resource(object):
     def __repr__(self):
         param = parse_substitution(self.path)
         param.extend([p for p in self.required])
-        param.extend(['%s=%s' % (o.name, o.default) for o in self.optional.values()])
-        return 'resource.%s(%s)' % (self.name, ', '.join(param))
+        param.extend(['\n    %s' % o for o in self.optional.values()])
+        return 'resource.%s(%s\n)' % (self.name, ', '.join(param))
 
     def add_required(self, parameter_name):
         self.required.append(parameter_name)
@@ -423,4 +423,7 @@ class Optional(object):
         self.validate = validate
 
     def __repr__(self):
-        return 'Optional[name=%s, dft=%s, cfg=%s]' % (self.name, self.default, self.config)
+        opt = '%s=%s' % (self.name, self.default)
+        if self.config:
+            opt += ', config=%s' % (self.config)
+        return opt
