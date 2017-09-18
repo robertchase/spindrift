@@ -54,6 +54,24 @@ class Micro(object):
 micro = Micro()
 
 
+def db_cursor(rest_handler):
+    """ Add a databse cursor to a request
+
+        The cursor is added to the request as the attribute 'cursor'
+        and set to automatically close on request.respond. The
+        delay() method is called on the request object to allow
+        async calls to continue without a premature response.
+    """
+    def inner(request, *args, **kwargs):
+        cursor = micro.db.cursor
+        cursor.cid = request.id
+        request.cursor = cursor
+        request.cleanup = cursor.close
+        request.delay()
+        rest_handler(request, *args, **kwargs)
+    return inner
+
+
 class MicroContext(RESTContext):
 
     def __init__(self, mapper, http_max_content_length, http_max_line_length, http_max_header_count):

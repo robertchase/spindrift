@@ -5,8 +5,6 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import logging
 
-from spindrift.micro import micro
-
 
 log = logging.getLogger(__name__)
 
@@ -77,21 +75,3 @@ def content_to_json(*fields, **kwargs):
             return rest_handler(request, *args, **kwargs)
         return inner
     return __content_to_json
-
-
-def db_cursor(rest_handler):
-    """ Add a databse cursor to a request
-
-        The cursor is added to the request as the attribute 'cursor'
-        and set to automatically close on request.respond. The
-        delay() method is called on the request object to allow
-        async calls to continue without a premature response.
-    """
-    def inner(request, *args, **kwargs):
-        cursor = micro.db.cursor
-        cursor.cid = request.id
-        request.cursor = cursor
-        request.cleanup = cursor.close
-        request.delay()
-        rest_handler(request, *args, **kwargs)
-    return inner
