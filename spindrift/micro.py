@@ -30,6 +30,26 @@ class Micro(object):
         self.timer = Timer()
         self.connection = type('Connections', (object,), dict())
 
+    @classmethod
+    def load(cls, micro='micro', config=None):
+        p = parser().parse(micro)
+        if config:
+            p.config._load(config)
+        return p
+
+    def setup(self, parser):
+        config = parser.config
+        setup_log(config)
+        setup_database(config, self)
+        setup_servers(config, self, parser.servers)
+        setup_connections(config, self, parser.connections)
+
+    def run(self, parser):
+        start(self, parser.setup)
+        run(self)
+        stop(parser.teardown)
+        self.network.close()
+
 
 micro = Micro()
 
@@ -89,9 +109,9 @@ def setup_signal():
     signal.signal(signal.SIGUSR1, toggle_debug)
 
 
-def setup_log(micro):
+def setup_log(config):
 
-    config = micro.config.log
+    config = config.log
     name = config.name
     level = config.level.upper()
     stdout = config.is_stdout
@@ -149,9 +169,9 @@ def _fsm_trace(s, e, d, i):
     log.debug('mysql fsm s=%s, e=%s, is_internal=%s', s, e,  i)
 
 
-def setup_database(micro):
+def setup_database(config, micro):
     try:
-        db = micro.config.db
+        db = config.db
     except Exception:
         return
     if db.is_active:
@@ -172,8 +192,7 @@ def setup_database(micro):
         context.long_query = db.long_query
 
 
-def setup_servers(micro, servers):
-    config = micro.config
+def setup_servers(config, micro, servers):
     for server in servers.values():
         conf = config._get('server.%s' % server.name)
         if conf.is_active is False:
@@ -202,8 +221,7 @@ def setup_servers(micro, servers):
         log.info('listening on %s port %d', server.name, conf.port)
 
 
-def setup_connections(micro, connections):
-    config = micro.config
+def setup_connections(config, micro, connections):
     for c in connections.values():
         conf = config._get('connection.%s' % c.name)
         headers = {}
@@ -288,23 +306,15 @@ if __name__ == '__main__':
     aparser.add_argument('--no-config', dest='no_config', default=False, action='store_true', help="don't use a config file")
     aparser.add_argument('--micro', default='micro', help='micro description file')
     aparser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
-    aparser.add_argument('-n', '--connections', dest='connections', action='store_true', default=False, help='parse micro and config files and display defined connections')
+    aparser.add_argument('-n', '--connections', dest='connections_only', action='store_true', default=False, help='parse micro and config files and display defined connections')
     args = aparser.parse_args()
 
-    p = parser.parse(args.micro)
-    if args.no_config is False:
-        p.config._load(args.config)
-    if args.config_only is True:
+    load_args = (args.micro,) if args.no_config else (args.micro, args.config)
+    p = module.micro.load(*load_args)
+    if args.config_only:
         print(p.config)
-    elif args.connections:
+    elif args.connections_only:
         print(p.show_connections())
     else:
-        module.micro.config = p.config
-        setup_log(module.micro)
-        setup_database(module.micro)
-        setup_servers(module.micro, p.servers)
-        setup_connections(module.micro, p.connections)
-        start(module.micro, p.setup)
-        run(module.micro)
-        stop(p.teardown)
-        module.micro.network.close()
+        module.micro.setup(p)
+        module.micro.run(p)
