@@ -306,7 +306,7 @@ class Method(object):
 
 class Database(object):
 
-    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', handler=None, timeout=60.0, long_query=0.5, fsm_trace=False):
+    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', timeout=60.0, long_query=0.5, fsm_trace=False):
         self.is_active = is_active
         self.user = user
         self.password = password
