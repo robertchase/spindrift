@@ -99,7 +99,7 @@ class RESTHandler(http.HTTPHandler):
 
     def _rest_send(self, code, message=None, content='', content_type=None, headers=None, close=False):
 
-        if isinstance(content, (dict, list, float, bool, int)):
+        if isinstance(content, (dict, list, tuple)):
             try:
                 content = json.dumps(content)
                 content_type = 'application/json; charset=utf-8'

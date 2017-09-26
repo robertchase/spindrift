@@ -34,17 +34,62 @@ assist in async operation.
 
 A request is *done* when `request.respond` is called, implicitly or explicitly.
 
-Multiple calls to cleanup will result in each callable being run in turn.
+Multiple assignments to cleanup will result in each callable being run in turn.
 
 ## methods
 
 ### respond
 
-`respond()`
+The `respond` method sends an HTTP response to the connection peer.
+
+There are no required parameters for this method. If no parameters are
+specified, status code=200 and an empty document are sent.
+
+The `respond` method is automatically called if a rest handler
+returns without calling `delay`. Any values returned will be treated
+as parameters to the `respond` method.
+
+Multiple calls to `respond` will only result in one response to
+the connection peer.
+
+```
+ respond(code=200, content='', headers=None, message=None, content_type=None)
+```
+
+##### parameters
+
+`code` - HTTP status code (default=200) [Note 1]
+
+`content` - HTTP document (default='') [Note 2]
+
+`headers` - dict of HTTP headers
+
+`message` - HTTP status message to accompany code [Note 3]
+
+`content_type` - value for HTTP header 'Content-Type'
+
+##### notes
+
+1. if `code` is not an integer, then it is assumed to be the `content`
+
+2. if `content` is a `dict`, `list` or `tuple`, then it is json.dumps'd and
+and `content_type` is set to `application/json`.
+
+3. The following `code`s are automatically supplied with a message:
+
+* 200 - OK
+* 201 - Created
+* 204 - No Content
+* 302 - Found
+* 400 - Bad Request
+* 401 - Not Authorized
+* 403 - Forbidden
+* 404 - Not Found
+* 500 - Internal Server Error
 
 ### call
 
-The `call` method on the request provides a structured way to make async calls.
+The `call` method provides a structured way to make async calls.
 
 The signature for an async-callable function is:
 
@@ -78,9 +123,10 @@ def my_handler(request, my_param):
     my_logic(success, my_param)
 ```
 
+`my_logic` is an async-callable function, taking `success` as its `callback`.
 The result of this pattern is a whole lot of boilerplate code, checking `rc` and responding in one of a few ways.
 The purpose of the `call` method is to simplify this process by supplying a set of default actions for
-typical situations. In this case, the use of `call` eliminates the callback entirely:
+typical situations. In this case, the use of `call` eliminates the `callback` entirely:
 
 ```
 def my_handler(request, my_param):
@@ -90,23 +136,88 @@ def my_handler(request, my_param):
     )
 ```
 
-The request handler's async activity is chained together through `request_cb` functions with this signature:
+The `call` method's default success action is to respond with the `result`;
+the `call` method's default error action is to `log.warning` the `result` along with the request's
+connection id and respond with a 500.
+
+Here is one more example:
 
 ```
-request_cb(request, result)
+def my_handler(request, my_param):
+
+    def my_success(request, result):
+        request.respond({"data": result['my_field'])
+
+    def request.call(
+        my_logic,
+        args=my_param,
+        on_success=my_success,
+    )
 ```
 
-Where `request` is the request object, and `result` is the response from the called function.
-This pattern allows the request to maintain state, and keep moving forward despite the async discontinuities.
+This shows an `on_success` parameter being specified. The `my_success` callable, and other
+functions like it, take two parameters: `request` and `result`.
+`request` is the same request object passed to `my_handler`, and `result` is the
+return value from the `my_logic` callable.
+The `call` method can pass control to a number of callables like `on_success`. Here is
+the full signature:
+
+##### signature
 
 ```
 call(
     async_callable,
-    args=arg or list of args for callable,
-    kwargs=dict of kwargs for callable,
-    on_success=request_cb,
+    args=args,
+    kwargs=kwargs,
+    on_success=on_success_callable,
+    on_success_code=status code to respond with on success,
+    on_error=on_error_callable,
+    on_none=on_none_callable,
+    on_none_404=boolean (default=False),
 )
 ```
 
+##### parameters
+
+`async_callable` - a callable taking a `callback` as the first parameter (required)
+
+`args` - an argument or list of arguments to `async_callable`
+
+`kwargs` - a dict of keyword arguments to `async_callable`
+
+`on_success` - an `async callback` function called when `rc`==0 [Note 1]
+
+`on_success_code` - the HTTP status code to use when `rc`==0
+
+`on_error` - an `async callback` function called when `rc`!=0 [Note 2]
+
+`on_none` - an `async callback` function called when `rc`==0 and `result` is None
+
+`on_none_404` - if True, respond with HTTP status code 404 if `rc`==0 and `result` is None
+
+##### notes
+
+1. an `async callback` function takes two arguments: `request` and `result`
+
+2. the `on_error` `result` is an error message
+
+##### cursor handling
+
+TODO
+
+##### task handling
+
+TODO
 
 ### delay
+
+The `delay` method signals `spindrift` not to respond immediately
+after the rest handler completes.
+
+Simple rest handlers will return a value, which is then
+sent as a response.
+During async handling, the response to the connection's peer is
+delayed until all async activity is complete.
+
+ The `call` method
+automatically calls `delay`.
