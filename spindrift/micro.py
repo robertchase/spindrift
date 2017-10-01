@@ -30,24 +30,29 @@ class Micro(object):
         self.timer = Timer()
         self.connection = type('Connections', (object,), dict())
 
-    @classmethod
-    def load(cls, micro='micro', config=None):
-        p = parser().parse(micro)
+    def load(self, micro='micro', config=None):
+        self.parser = parser().parse(micro)
         if config:
-            p.config._load(config)
-        return p
+            self.parser.config._load(config)
+        return self
 
-    def setup(self, parser):
+    def setup(self):
+        parser = self.parser
         config = parser.config
         setup_log(config)
         setup_database(config, self)
         setup_servers(config, self, parser.servers)
         setup_connections(config, self, parser.connections)
+        return self
 
-    def run(self, parser):
+    def run(self):
+        parser = self.parser
         start(self, parser.setup)
         run(self)
         stop(parser.teardown)
+        self.close()
+
+    def close(self):
         self.network.close()
 
 
@@ -328,11 +333,10 @@ if __name__ == '__main__':
     args = aparser.parse_args()
 
     load_args = (args.micro,) if args.no_config else (args.micro, args.config)
-    p = module.micro.load(*load_args)
+    m = module.micro.load(*load_args)
     if args.config_only:
-        print(p.config)
+        print(m.parser.config)
     elif args.connections_only:
-        print(p.show_connections())
+        print(m.parser.show_connections())
     else:
-        module.micro.setup(p)
-        module.micro.run(p)
+        m.setup().run()

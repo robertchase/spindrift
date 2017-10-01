@@ -1,4 +1,4 @@
-from spindrift.micro.micro import Micro
+from spindrift.micro import Micro
 
 
 PORT = 12345
@@ -20,11 +20,12 @@ def test_ping():
         '  ROUTE %s$' % PATH,
         '    GET test.test_micro_ping.ping',
         'CONNECTION pinger http://localhost:%s' % PORT,
+        '  RESOURCE get %s is_json=False' % PATH,
     ]
-    micro = Micro().load(s, None).start()
+    micro = Micro().load(s).setup()
 
-    c = micro.connection.pinger.get(on_ping, PATH, is_json=False)
+    c = micro.connection.pinger.resource.get(on_ping)
     while c.is_open:
-        micro.service()
+        micro.network.service()
     assert c.t_http_data > 0
     micro.close()
