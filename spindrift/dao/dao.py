@@ -23,7 +23,7 @@ class DAO(object):
 
         The primary use case is load/save by primary key. The name of the
         primary key is assumed to be 'id' and foreign key references are assumed
-        to be <foreign table name>_id. These assumtions are not required but
+        to be <foreign table name>_id. These assumptions are not required but
         make default actions much easier.
 
         All database operations are asynchronous and require a callback function
@@ -97,17 +97,22 @@ class DAO(object):
             Callback result:
                 DAO or None
         """
-        return cls.query().by_id().execute(callback, id, one=True, cursor=cursor)
+        return cls.query().by_id().execute(
+            callback, id, one=True, cursor=cursor
+        )
 
-    def save(self, callback, insert=False, cursor=None, start_transaction=False, commit=False):
+    def save(self, callback, insert=False, cursor=None,
+             start_transaction=False, commit=False):
         """ Save database object by id
 .
             Parameters:
                 callback - callback_fn(rc, result)
                 insert - bool
-                         if True save object with non-None id with INSERT instead of UPDATE
+                         if True save object with non-None id with INSERT
+                         instead of UPDATE
                 cursor - database cursor (if None, new cursor will be created)
-                start_transaction - start transaction before performing save (See Note 3)
+                start_transaction - start transaction before performing save
+                                    (See Note 3)
                 commit - commit transaction after performing save (See Note 3)
 
             Callback result:
@@ -115,13 +120,15 @@ class DAO(object):
 
             Notes:
 
-                1. Objects with a None value for 'id' are INSERTED. After the INSERT, the
-                   id attribute is set to the auto-generated primary key.
+                1. Objects with a None value for 'id' are INSERTED. After the
+                   INSERT, the id attribute is set to the auto-generated
+                   primary key.
 
                 2. On UPDATE, only changed fields, if any, are SET.
 
-                3. If start_transaction and commit are not specified, then the save will be
-                   automatically wrapped in a transaction (start_transaction, save, commit).
+                3. If start_transaction and commit are not specified, then the
+                   save will be automatically wrapped in a transaction
+                   (start_transaction, save, commit).
         """
         cache = {}
         for n in self.JSON_FIELDS:
@@ -143,8 +150,9 @@ class DAO(object):
     def insert(self, callback, id=None, cursor=None):
         """ Force insert
 
-            Insert usually happens automatically when id is NOT specified; this is for the
-            unusual case where you want to specifiy the primary key yourself.
+            Insert usually happens automatically when id is NOT specified; this
+            is for the unusual case where you want to specifiy the primary key
+            yourself.
 
             Parameters:
                 callback - callback_fn(rc, result)
@@ -172,7 +180,9 @@ class DAO(object):
                 List of objects of type cls
         """
         args = tuple() if not args else args
-        return cls.query().where(where).execute(callback, arg=args, cursor=cursor)
+        return cls.query().where(where).execute(
+            callback, arg=args, cursor=cursor
+        )
 
     @classmethod
     def count(cls, callback, where=None, arg=None, cursor=None):
@@ -233,15 +243,18 @@ class DAO(object):
                 list of children
 
             Notes:
-                1. the query is constructed as 'WHERE <cls.TABLE>.<self.TABLE>_id = <self.id>'
+                1. the query is constructed as
+                   'WHERE <cls.TABLE>.<self.TABLE>_id = <self.id>'
 
-                2. If self has not been saved, children cannot be determined from the
-                   database. This will cause an error.
+                2. If self has not been saved, children cannot be determined
+                   from the database. This will cause an error.
         """
         if self.is_new:
             return callback(1, "an unsaved DAO can't have children")
         child = cls.TABLE
-        cls.query().where('%s.%s_id = %%s' % (child, self.TABLE)).execute(callback, self.id, cursor=cursor)
+        cls.query().where('%s.%s_id = %%s' % (child, self.TABLE)).execute(
+            callback, self.id, cursor=cursor
+        )
 
     def foreign(self, callback, cls, cursor=None):
         """ Get the instance of cls to which self has a foreign_key reference.
@@ -255,19 +268,23 @@ class DAO(object):
                 DAO or foreign object or None
 
             Notes:
-                1. The query is constructed as 'WHERE <cls.TABLE>.id = <self.<cls.TABLE>_id>'
+                1. The query is constructed as
+                   'WHERE <cls.TABLE>.id = <self.<cls.TABLE>_id>'
         """
         foreign = cls.TABLE
         foreign_id = getattr(self, '%s_id' % foreign)
         if not foreign_id:
             return callback(0, None)
-        cls.query().where('%s.id = %%s' % foreign).execute(callback, foreign_id, one=True, cursor=cursor)
+        cls.query().where('%s.id = %%s' % foreign).execute(
+            callback, foreign_id, one=True, cursor=cursor
+        )
 
     @classmethod
     def query(cls):
         """ Return a spindrift.dao.query object for this class
 
-            This can be used to construct a query using methods on the query class.
+            This can be used to construct a query using methods on the query
+            class.
         """
         return Query(cls)
 
@@ -304,7 +321,12 @@ class DAO(object):
         pass
 
     def json(self):
-        return self.on_json({n: self._json(getattr(self, n)) for n in chain(self.FIELDS, self.CALCULATED_FIELDS.keys()) if hasattr(self, n)})
+        return self.on_json({
+            n: self._json(getattr(self, n))
+            for n in
+            chain(self.FIELDS, self.CALCULATED_FIELDS.keys())
+            if hasattr(self, n)
+        })
 
     def on_json(self, json):
         return json
@@ -316,19 +338,39 @@ class DAO(object):
             new = True
             self.before_insert()
             fields = self._non_pk_fields if not insert else self.FIELDS
-            fields = [f for f in fields if not (f in self.NULLABLE and self.__dict__[f] is None)]
-            stmt = 'INSERT INTO ' + self.FULL_TABLE_NAME() + ' (' + ','.join('`' + f + '`' for f in fields) + ') VALUES (' + ','.join('%s' for n in range(len(fields))) + ')'
+            fields = [
+                f
+                for f in fields
+                if not (f in self.NULLABLE and self.__dict__[f] is None)
+            ]
+            stmt = ' '.join((
+                'INSERT INTO',
+                self.FULL_TABLE_NAME(),
+                ' (',
+                ','.join('`' + f + '`' for f in fields),
+                ') VALUES (',
+                ','.join('%s' for n in range(len(fields))),
+                ')',
+            ))
             args = [self.__dict__[f] for f in fields]
         else:
             if 'id' not in self.FIELDS:
-                raise Exception('DAO UPDATE requires that an "id" field be defined')
+                raise Exception(
+                    'DAO UPDATE requires that an "id" field be defined'
+                )
             new = False
             fields = self._update_fields
             self._updated_fields = [] if fields is None else fields
             if fields is None:
                 self._executed_stmt = self._stmt = None
                 return callback(0, self)
-            stmt = 'UPDATE ' + self.FULL_TABLE_NAME() + ' SET ' + ','.join(['`%s`=%%s' % n for n in fields]) + ' WHERE id=%s'
+            stmt = ' '.join((
+                'UPDATE ',
+                self.FULL_TABLE_NAME(),
+                'SET',
+                ','.join(['`%s`=%%s' % n for n in fields]),
+                'WHERE id=%s',
+            ))
             args = [self.__dict__[f] for f in fields]
             args.append(self.id)
 
@@ -347,7 +389,13 @@ class DAO(object):
         self._executed_stmt = None
         if start_transaction is False and commit is False:
             cursor.transaction()
-        cursor.execute(on_save, stmt, args, start_transaction=start_transaction, commit=commit)
+        cursor.execute(
+            on_save,
+            stmt,
+            args,
+            start_transaction=start_transaction,
+            commit=commit,
+        )
 
     @property
     def is_new(self):
@@ -367,8 +415,9 @@ class DAO(object):
     def _foreign(self, kwargs):
         ''' identify and translate foreign key relations
 
-            kwargs that match table names specified in FOREIGN are translated from
-            objects to ids using a "table_name + '_id' = object.id" pattern.
+            kwargs that match table names specified in FOREIGN are translated
+            from objects to ids using a "table_name + '_id' = object.id"
+            pattern.
         '''
         for table in self.FOREIGN.keys():
             t = kwargs.get(table)
@@ -419,10 +468,12 @@ class DAO(object):
         return self.__getattr__(name)
 
     def __setattr__(self, name, value):
-        if name.startswith('_') or name in self.FIELDS or name in self.PROPERTIES:
+        if name.startswith('_') or name in chain(self.FIELDS, self.PROPERTIES):
             self.__dict__[name] = value
         else:
-            raise AttributeError("%s has no attribute '%s'" % (self.__class__.__name__, name))
+            raise AttributeError("%s has no attribute '%s'" % (
+                self.__class__.__name__, name)
+            )
 
     def _json(self, value):
         if isinstance(value, (datetime, date)):
@@ -450,7 +501,11 @@ class DAO(object):
     def _update_fields(self):
         if self._orig is None:
             return self._non_pk_fields
-        f = [f for f in self._non_pk_fields if getattr(self, f) != self._orig.get(f)]
+        f = [
+            f
+            for f in self._non_pk_fields
+            if getattr(self, f) != self._orig.get(f)
+        ]
         if len(f) == 0:
             return None
         return f

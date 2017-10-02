@@ -12,8 +12,14 @@ class Query(object):
         self._classes = [table_class]
         self._join = table_class.FULL_TABLE_NAME()
 
-        self._columns = ['%s.`%s`' % (table_class.FULL_TABLE_NAME(), c) for c in table_class.FIELDS]
-        self._columns.extend('%s AS %s' % (c, n) for n, c in table_class.CALCULATED_FIELDS.items())
+        self._columns = [
+            '%s.`%s`' % (table_class.FULL_TABLE_NAME(), c)
+            for c in table_class.FIELDS
+        ]
+        self._columns.extend(
+            '%s AS %s' % (c, n)
+            for n, c in table_class.CALCULATED_FIELDS.items()
+        )
 
         self._column_names = [f for f in table_class.FIELDS]
         self._column_names.extend(table_class.CALCULATED_FIELDS.keys())
@@ -33,33 +39,49 @@ class Query(object):
         self.where('%s.`id`=%%s' % self._classes[0].FULL_TABLE_NAME())
         return self
 
-    def join(self, table_class1, column1=None, table_class2=None, column2='id', outer=False):
+    def join(self, table1, column1=None, table2=None, column2='id', outer=False):
         ''' add a table to the query
 
         Parameters:
-            table_class1 - DAO class of the table to add to the query
+            table_1 - DAO class of the table to add to the query
             column1 - join column on table1, default = table2.name + '_id'
-            table_class2 - DAO class of existing table to join, default is most recently added to query
+            table2 - DAO class of existing table to join
+                     default is most recently added to query
             column2 - join column of table2, default = 'id'
-            outer - OUTER join indicator, if True or 'LEFT' then LEFT OUTER JOIN, if 'RIGHT' then RIGHT OUTER JOIN; default = False
+            outer - OUTER join indicator
+                    if True or 'LEFT' then LEFT OUTER JOIN
+                    if 'RIGHT' then RIGHT OUTER JOIN
+                    default = False
 
         Hint: joining from parent to children is the default direction
         '''
-        if not table_class2:
-            table_class2 = self._classes[-1]
+        if not table2:
+            table2 = self._classes[-1]
         if not column1:
-            column1 = '%s_id' % table_class2.TABLE
-        self._classes.append(table_class1)
+            column1 = '%s_id' % table2.TABLE
+        self._classes.append(table1)
         if outer:
             direction = 'LEFT' if outer is True else outer
             self._join += ' %s OUTER' % direction
-        self._join += ' JOIN %s ON %s.`%s` = %s.`%s`' % (table_class1.FULL_TABLE_NAME(), table_class1.FULL_TABLE_NAME(), column1, table_class2.FULL_TABLE_NAME(), column2)
+        self._join += ' JOIN %s ON %s.`%s` = %s.`%s`' % (
+            table1.FULL_TABLE_NAME(),
+            table1.FULL_TABLE_NAME(),
+            column1,
+            table2.FULL_TABLE_NAME(),
+            column2
+        )
 
-        self._columns.extend('%s.`%s`' % (table_class1.FULL_TABLE_NAME(), c) for c in table_class1.FIELDS)
-        self._columns.extend('%s AS %s' % (c, n) for n, c in table_class1.CALCULATED_FIELDS.items())
+        self._columns.extend('%s.`%s`' % (
+            table1.FULL_TABLE_NAME(), c)
+            for c in table1.FIELDS
+        )
+        self._columns.extend(
+            '%s AS %s' % (c, n)
+            for n, c in table1.CALCULATED_FIELDS.items()
+        )
 
-        self._column_names.extend(table_class1.FIELDS)
-        self._column_names.extend(table_class1.CALCULATED_FIELDS.keys())
+        self._column_names.extend(table1.FIELDS)
+        self._column_names.extend(table1.CALCULATED_FIELDS.keys())
 
         return self
 
@@ -83,7 +105,10 @@ class Query(object):
             stmt += ' FOR UPDATE'
         return stmt
 
-    def execute(self, callback, arg=None, one=False, limit=None, offset=None, for_update=False, before_execute=None, after_execute=None, cursor=None):
+    def execute(self, callback, arg=None,
+                one=False, limit=None, offset=None, for_update=False,
+                before_execute=None, after_execute=None,
+                cursor=None):
         self._stmt = self._build(one, limit, offset, for_update)
         self._executed_stmt = None
         if before_execute:

@@ -21,6 +21,7 @@ class DB(object):
                 autocommit=False,  # autocommit (True/False)
                 isolation=None,    # session isolation level ("read committed", etc)
                 handler=None,      # alternate handler for mysql connection
+                                   # spindrift.mysq.connection.MysqlHandler
             ):
         self.network = network
         self.host = host
@@ -38,8 +39,6 @@ class DB(object):
 
     @property
     def connection(self):
-        if self.context is None:
-            raise Exception('database connection is not configured')
         return self.network.add_connection(
             self.host,
             self.port,
