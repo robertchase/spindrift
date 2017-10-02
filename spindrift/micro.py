@@ -8,7 +8,6 @@ import logging
 import logging.config
 import platform
 import signal
-import uuid
 
 from spindrift.dao.db import DB
 import spindrift.file_util as file_util
@@ -46,10 +45,11 @@ class Micro(object):
         return self
 
     def run(self):
-        parser = self.parser
-        start(self, parser.setup)
+        teardown = self.parser.teardown
+        start(self, self.parser.setup)
+        del self.__dict__['parser']  # parser not available during run
         run(self)
-        stop(parser.teardown)
+        stop(teardown)
         self.close()
 
     def close(self):
@@ -79,7 +79,12 @@ def db_cursor(rest_handler):
 
 class MicroContext(RESTContext):
 
-    def __init__(self, mapper, http_max_content_length, http_max_line_length, http_max_header_count):
+    def __init__(
+                self, mapper,
+                http_max_content_length,
+                http_max_line_length,
+                http_max_header_count
+            ):
         super(MicroContext, self).__init__(mapper)
         self.http_max_content_length = http_max_content_length
         self.http_max_line_length = http_max_line_length
@@ -96,9 +101,7 @@ class MicroHandler(InboundHandler):
         self.http_max_header_count = context.http_max_header_count
 
     def on_rest_exception(self, exception_type, value, trace):
-        code = uuid.uuid4().hex
-        log.exception('exception encountered, code: %s', code)
-        return 'oh, no! something broke. sorry about that.\nplease report this problem using the following id: %s\n' % code
+        log.exception('rest handler exception')
 
 
 def _import(item_path, is_module=False):
@@ -223,16 +226,19 @@ def setup_servers(config, micro, servers):
         mapper = RESTMapper()
         context = MicroContext(
             mapper,
-            conf.http_max_content_length if hasattr(conf, 'http_max_content_length') else None,
-            conf.http_max_line_length if hasattr(conf, 'http_max_line_length') else 10000,
-            conf.http_max_header_count if hasattr(conf, 'http_max_header_count') else 100,
+            conf.http_max_content_length,
+            conf.http_max_line_length,
+            conf.http_max_header_count,
         )
         for route in server.routes:
             methods = {}
             for method, path in route.methods.items():
                 methods[method] = _import(path)
             mapper.add(route.pattern, **methods)
-        handler = _import(conf.handler, is_module=True) if hasattr(conf, 'handler') else MicroHandler
+        if hasattr(conf, 'handler'):
+            handler = _import(conf.handler, is_module=True)
+        else:
+            handler = MicroHandler
         micro.network.add_server(
             port=conf.port,
             handler=handler,
@@ -249,7 +255,12 @@ def setup_connections(config, micro, connections):
         conf = config._get('connection.%s' % c.name)
         headers = {}
         for header in c.headers.values():
-            value = config._get('connection.%s.header.%s' % (c.name, header.config)) if header.config else _import(header.code) if header.code else header.default
+            if header.config:
+                value = config._get(
+                    'connection.%s.header.%s' % (c.name, header.config)
+                )
+            else:
+                value = _import(header.code)
             if value:
                 headers[header.key] = value
         conn = micro_connection.MicroConnect(
@@ -269,10 +280,26 @@ def setup_connections(config, micro, connections):
         for resource in c.resources.values():
             optional = {}
             for option in resource.optional.values():
-                optional[option.name] = config._get('connection.%s.resource.%s.%s' % (c.name, resource.name, option.config)) if option.config else option.default
+                if option.config:
+                    optional[option.name] = config._get(
+                        'connection.%s.resource.%s.%s' % (
+                            c.name, resource.name, option.config)
+                    )
+                else:
+                    optional[option.name] = option.default
             if resource.headers is not None:
                 for header in resource.headers.values():
-                    resource.headers[header.key] = config._get('connection.%s.resource.%s.header.%s' % (c.name, resource.name, header.config)) if header.config else _import(header.code) if header.code else header.default
+                    if header.config:
+                        resource.headers[header.key] = config._get(
+                            'connection.%s.resource.%s.header.%s' % (
+                                c.name,
+                                resource.name,
+                                header.config)
+                        )
+                    elif header.code:
+                        resource.headers[header.key] = _import(header.code)
+                    else:
+                        resource.headers[header.key] = header.default
             conn.add_resource(
                 resource.name,
                 resource.path,
@@ -300,7 +327,9 @@ def start(micro, setup):
 def run(micro, sleep=100, max_iterations=100):
     while True:
         try:
-            micro.network.service(timeout=sleep/1000.0, max_iterations=max_iterations)
+            micro.network.service(
+                timeout=sleep/1000.0, max_iterations=max_iterations
+            )
             micro.timer.service()
         except KeyboardInterrupt:
             log.info('Received shutdown command from keyboard')
@@ -325,11 +354,26 @@ if __name__ == '__main__':
         description='start a micro service',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    aparser.add_argument('--config', default='config', help='configuration file')
-    aparser.add_argument('--no-config', dest='no_config', default=False, action='store_true', help="don't use a config file")
-    aparser.add_argument('--micro', default='micro', help='micro description file')
-    aparser.add_argument('-c', '--config-only', dest='config_only', action='store_true', default=False, help='parse micro and config files and display config values')
-    aparser.add_argument('-n', '--connections', dest='connections_only', action='store_true', default=False, help='parse micro and config files and display defined connections')
+    aparser.add_argument(
+        '--config', default='config', help='configuration file'
+    )
+    aparser.add_argument(
+        '--no-config', dest='no_config', default=False, action='store_true',
+        help="don't use a config file"
+    )
+    aparser.add_argument(
+        '--micro', default='micro', help='micro description file'
+    )
+    aparser.add_argument(
+        '-c', '--config-only',
+        dest='config_only', action='store_true', default=False,
+        help='parse micro and config files and display config values'
+    )
+    aparser.add_argument(
+        '-n', '--connections',
+        dest='connections_only', action='store_true', default=False,
+        help='parse micro and config files and display defined connections'
+    )
     args = aparser.parse_args()
 
     load_args = (args.micro,) if args.no_config else (args.micro, args.config)

@@ -231,6 +231,10 @@ class Parser(object):
             self._add_config('server.%s.ssl.keyfile' % server.name, validator=config_file.validate_file)
             self._add_config('server.%s.ssl.certfile' % server.name, validator=config_file.validate_file)
 
+            self._add_config('server.%s.http_max_content_length' % server.name, validator=config_file.validate_int)
+            self._add_config('server.%s.http_max_line_length' % server.name, validator=config_file.validate_int, value=10000)
+            self._add_config('server.%s.http_max_header_count' % server.name, validator=config_file.validate_int, value=100)
+
     def act_add_setup(self):
         if len(self.args) > 1:
             raise Exception('too many tokens specified')
