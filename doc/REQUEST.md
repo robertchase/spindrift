@@ -113,17 +113,17 @@ Before getting to the full signature of the call method, an example:
 ```
 def my_handler(request, my_param):
 
-    def success(rc, result):
+    def on_done(rc, result):
         if rc == 0:
             request.respond(200, result)
         else:
             log.warning(result)
             request.respond(500)
 
-    my_logic(success, my_param)
+    my_logic(on_done, my_param)
 ```
 
-`my_logic` is an async-callable function, taking `success` as its `callback`.
+`my_logic` is an async-callable function, taking `on_done` as its `callback`.
 The result of this pattern is a whole lot of boilerplate code, checking `rc` and responding in one of a few ways.
 The purpose of the `call` method is to simplify this process by supplying a set of default actions for
 typical situations. In this case, the use of `call` eliminates the `callback` entirely:
@@ -201,13 +201,38 @@ call(
 
 2. the `on_error` `result` is an error message
 
-##### cursor handling
-
-TODO
-
 ##### task handling
 
-TODO
+This is magic.
+
+If the first parameter of an `async_callable` argument to
+the `call` method is *named* `task`, then an instance of
+`spindrift.task.Task` is passed to the callable.
+Think of the `task` as a lightweight `request`, or as a heavyweight `callback`,
+which isolates lower-level logic from any awareness of the HTTP `request`.
+
+*For the curious*: the `call` method provides its own `callback function` that handles all the
+special cases (like `on_success`, `on_error`, etc.).
+If the first parameter is named `task`, by inspection, then `call`'s `callback function`
+is wrapped in a `spindrift.task.Task`.
+
+
+##### cursor handling
+
+This is magic.
+
+If a request has a `cursor` attribute, it is automatically
+added to the `task` parameter (see *task handling*) of any `async_callable`.
+
+If an `async_callable` has a `kwarg` named `cursor`,
+an no `cursor` `kwarg` is specified in the `call` method,
+the `request`'s `cursor` attribute is provided as the `async_method`'s `cursor` `kwarg`.
+
+*Justification*: Database interaction eventually requires a `cursor` and a `callback`.
+The purpose of transparently moving the `cursor` from `request` to `task`,  and also from
+`task` to `task`, is to remove the burden of this tedious and repetitive
+work from the programmer.
+This helps to support a `cursor`-per-`request` model, which may be desirable.
 
 ### delay
 
