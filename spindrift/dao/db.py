@@ -22,6 +22,7 @@ class DB(object):
                 isolation=None,    # session isolation level ("read committed", etc)
                 handler=None,      # alternate handler for mysql connection
                                    # spindrift.mysq.connection.MysqlHandler
+                commit=True,       # False to disallow COMMIT
             ):
         self.network = network
         self.host = host
@@ -35,6 +36,7 @@ class DB(object):
             autocommit=autocommit,
             isolation=isolation,
             handler=handler or connection.MysqlHandler,
+            commit=commit,
         )
 
     @property

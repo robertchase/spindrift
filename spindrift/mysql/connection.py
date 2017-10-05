@@ -43,7 +43,13 @@ class MysqlHandler(network.Handler):
     def on_data(self, data):
         self._protocol.handle(data)
 
-    def on_query_start(self, query):
+    def on_transaction_start(self):
+        pass
+
+    def on_transaction_end(self, end_type):
+        pass
+
+    def on_query_start(self):
         pass
 
     def on_query_end(self):

@@ -102,6 +102,8 @@ class Protocol(object):
         return converters.escape_string(s)
 
     def query(self, callback, sql, start_transaction=False, end_transaction=None, cls=None):
+        if self._query:
+            return callback(1, 'query started before last query ended')
         self._callback = callback
         self._cls = cls
         self._query = sql

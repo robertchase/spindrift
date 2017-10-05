@@ -15,6 +15,8 @@ class Cursor(object):
         self._transaction_commit = False
         self._transaction_rollback = False
 
+        self.is_running = False
+
     def __setattr__(self, name, value):
         if name == 'cid':
             self.protocol.connection.cid = value
@@ -102,5 +104,12 @@ class Cursor(object):
         else:
             end = None
 
-        self.protocol.query(callback, query, cls=cls,
-                            start_transaction=start, end_transaction=end)
+        def _callback(rc, result):
+            self.is_running = False
+            callback(rc, result)
+
+        self.is_running = True
+        self.protocol.query(
+            _callback, query, cls=cls,
+            start_transaction=start, end_transaction=end
+        )

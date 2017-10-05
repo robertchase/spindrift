@@ -92,12 +92,12 @@ class DAO(object):
             Parameters:
                 callback - callback_fn(rc, result)
                 id - primary key
-                cursor - databse cursor (if None, new cursor will be created)
+                cursor - databse cursor
 
             Callback result:
                 DAO or None
         """
-        return cls.query().by_id().execute(
+        cls.query().by_id().execute(
             callback, id, one=True, cursor=cursor
         )
 
@@ -110,7 +110,7 @@ class DAO(object):
                 insert - bool
                          if True save object with non-None id with INSERT
                          instead of UPDATE
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
                 start_transaction - start transaction before performing save
                                     (See Note 3)
                 commit - commit transaction after performing save (See Note 3)
@@ -130,6 +130,8 @@ class DAO(object):
                    save will be automatically wrapped in a transaction
                    (start_transaction, save, commit).
         """
+        if not cursor:
+            raise Exception('cursor not specified')
         cache = {}
         for n in self.JSON_FIELDS:
             v = cache[n] = getattr(self, n)
@@ -141,10 +143,10 @@ class DAO(object):
             self.__dict__.update(cache)
             if rc == 0:
                 self.after_save()
-            callback(rc, self)
+                callback(0, self)
+            else:
+                callback(rc, result)
 
-        if not cursor:
-            cursor = DB.cursor
         self._save(on_save, insert, cursor, start_transaction, commit)
 
     def insert(self, callback, id=None, cursor=None):
@@ -157,7 +159,7 @@ class DAO(object):
             Parameters:
                 callback - callback_fn(rc, result)
                 id - primary key to use for insert (else 'id' attribute on self)
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
 
             Callback result:
                 self
@@ -174,13 +176,13 @@ class DAO(object):
                 callback - callback_fn(rc, result)
                 where - optional where clause to restrict list
                 args - optional substitution values for where clause
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
 
             Callback result:
                 List of objects of type cls
         """
         args = tuple() if not args else args
-        return cls.query().where(where).execute(
+        cls.query().where(where).execute(
             callback, arg=args, cursor=cursor
         )
 
@@ -192,11 +194,13 @@ class DAO(object):
                 callback - callback_fn(rc, result)
                 where - optional where clause to restrict count
                 args - optional substitution values for where clause
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
 
             Callback result:
                count (int)
         """
+        if not cursor:
+            raise Exception('cursor not specified')
         query = 'SELECT COUNT(*) FROM `%s`' % cls.TABLE
         if where:
             query += ' WHERE ' + where
@@ -206,8 +210,6 @@ class DAO(object):
                 result = result[0][0]
             callback(rc, result)
 
-        if not cursor:
-            cursor = DB.cursor
         cursor.execute(on_count, query, arg)
 
     def delete(self, callback, cursor=None):
@@ -215,11 +217,13 @@ class DAO(object):
 
             Parameters:
                 callback - callback_fn(rc, result)
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
 
             Callback result:
                None
         """
+        if not cursor:
+            raise Exception('cursor not specified')
         query = 'DELETE from %s where `id`=%%s' % self.FULL_TABLE_NAME()
 
         def on_delete(rc, result):
@@ -227,9 +231,7 @@ class DAO(object):
                 result = None
             callback(rc, result)
 
-        if not cursor:
-            cursor = DB.cursor
-        cursor.execute(on_delete, query, self.id, cursor=cursor)
+        cursor.execute(on_delete, query, self.id)
 
     def children(self, callback, cls, cursor=None):
         """ Return members of cls with a foreign_key reference to self.
@@ -237,7 +239,7 @@ class DAO(object):
             Parameters:
                 callback - callback_fn(rc, result)
                 cls - subclass of DAO
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
 
             Callback result:
                 list of children
@@ -262,7 +264,7 @@ class DAO(object):
             Parameters:
                 callback - callback_fn(rc, result)
                 cls - subclass of DAO
-                cursor - database cursor (if None, new cursor will be created)
+                cursor - database cursor
 
             Callback result:
                 DAO or foreign object or None
@@ -363,7 +365,8 @@ class DAO(object):
             self._updated_fields = [] if fields is None else fields
             if fields is None:
                 self._executed_stmt = self._stmt = None
-                return callback(0, self)
+                callback(0, self)
+                return cursor
             stmt = ' '.join((
                 'UPDATE ',
                 self.FULL_TABLE_NAME(),
@@ -377,7 +380,8 @@ class DAO(object):
         def on_save(rc, result):
             self._executed_stmt = cursor._executed
             if rc != 0:
-                return callback(rc, result)
+                callback(rc, result)
+                return cursor
             self._cache_fields()
             if new:
                 if not insert and 'id' in self.FIELDS:

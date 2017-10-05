@@ -58,6 +58,7 @@ STATE query
 STATE transaction_end
     EVENT ok
         ACTION query_complete
+    EVENT query
     EVENT done connected
     EVENT close close
 

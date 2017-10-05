@@ -3,7 +3,6 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-from spindrift.dao.db import DB
 
 
 class Query(object):
@@ -109,6 +108,8 @@ class Query(object):
                 one=False, limit=None, offset=None, for_update=False,
                 before_execute=None, after_execute=None,
                 cursor=None):
+        if not cursor:
+            raise Exception('cursor not specified')
         self._stmt = self._build(one, limit, offset, for_update)
         self._executed_stmt = None
         if before_execute:
@@ -140,6 +141,4 @@ class Query(object):
                 rows = rows[0] if len(rows) else None
             callback(0, rows)
 
-        if not cursor:
-            cursor = DB.cursor
         cursor.execute(on_execute, self._stmt, arg)
