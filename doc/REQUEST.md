@@ -91,6 +91,8 @@ and `content_type` is set to `application/json`.
 
 The `call` method provides a structured way to make async calls.
 
+The first parameter to the `call` method must
+be an *async-callable* function.
 The signature for an async-callable function is:
 
 ```
@@ -146,7 +148,7 @@ Here is one more example:
 def my_handler(request, my_param):
 
     def my_success(request, result):
-        request.respond({"data": result['my_field'])
+        request.respond({"data": result['my_field']})
 
     def request.call(
         my_logic,
@@ -205,8 +207,8 @@ call(
 
 This is magic.
 
-If the first parameter of an `async_callable` argument to
-the `call` method is *named* `task`, then an instance of
+If the first parameter of an `async_callable`
+method is *named* `task`, then an instance of
 `spindrift.task.Task` is passed to the callable.
 Think of the `task` as a lightweight `request`, or as a heavyweight `callback`,
 which isolates lower-level logic from any awareness of the HTTP `request`.
@@ -225,8 +227,8 @@ If a request has a `cursor` attribute, it is automatically
 added to the `task` parameter (see *task handling*) of any `async_callable`.
 
 If an `async_callable` has a `kwarg` named `cursor`,
-an no `cursor` `kwarg` is specified in the `call` method,
-the `request`'s `cursor` attribute is provided as the `async_method`'s `cursor` `kwarg`.
+and no `cursor` `kwarg` is specified in the `call` method,
+then the `request`'s `cursor` attribute is provided as the `async_method`'s `cursor` `kwarg`.
 
 *Justification*: Database interaction eventually requires a `cursor` and a `callback`.
 The purpose of transparently moving the `cursor` from `request` to `task`,  and also from
