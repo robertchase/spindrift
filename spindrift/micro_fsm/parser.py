@@ -40,7 +40,10 @@ def load(micro='micro', files=None, lines=None):
 
     if isinstance(micro, str):
         if micro in files:
-            raise Exception('a micro file (in this case, %s) cannot be recursively imported' % micro)
+            raise Exception(
+                'a micro file (in this case, %s) cannot be recursively imported' %
+                micro,
+            )
         files.append(micro)
         micro = open(micro).readlines()
     elif isinstance(micro, list):
@@ -55,7 +58,9 @@ def load(micro='micro', files=None, lines=None):
         if len(line):
             line = line.split(' ', 1)
             if len(line) == 1:
-                raise Exception('too few tokens, file=%s, line=%d' % (fname, num))
+                raise Exception(
+                    'too few tokens, file=%s, line=%d' % (fname, num)
+                )
             if line[0].lower() == 'import':
                 import_fname = normalize_path(line[1], 'micro', parent=path)
                 load(import_fname, files, lines)
@@ -105,7 +110,11 @@ class Parser(object):
         for fname, num, parser.event, parser.line in load(micro):
             parser.args, parser.kwargs = to_args(parser.line)
             if not parser.fsm.handle(parser.event.lower()):
-                raise Exception("Unexpected directive '%s', file=%s, line=%d" % (parser.event, fname, num))
+                raise Exception(
+                    "Unexpected directive '%s', file=%s, line=%d" % (
+                        parser.event, fname, num
+                    )
+                )
             if parser.error:
                 raise Exception('%s, line=%d' % (parser.error, num))
         return parser
@@ -133,8 +142,14 @@ class Parser(object):
 
     def add_log_config(self):
         self._add_config('log.name', value=self.log.name)
-        self._add_config('log.level', value=self.log.level, env='SPINDRIFT_LOG_LEVEL')
-        self._add_config('log.is_stdout', value=self.log.is_stdout, validator=config_file.validate_bool)
+        self._add_config(
+            'log.level', value=self.log.level, env='SPINDRIFT_LOG_LEVEL'
+        )
+        self._add_config(
+            'log.is_stdout',
+            value=self.log.is_stdout,
+            validator=config_file.validate_bool
+        )
 
     def act_add_log(self):
         self.log = Log(*self.args, **self.kwargs)
@@ -145,15 +160,32 @@ class Parser(object):
         if connection.name in self.connections:
             self.error = 'duplicate CONNECTION name: %s' % connection.name
         elif connection.url is None and connection.code is None:
-            self.error = 'connection must have an url or code defined: %s' % connection.name
+            self.error = 'connection must have an url or code defined: %s' % (
+                connection.name
+            )
         else:
             self.connections[connection.name] = connection
             self.connection = connection
             if connection.url is not None:
-                self._add_config('connection.%s.url' % connection.name, value=connection.url)
-            self._add_config('connection.%s.is_active' % connection.name, value=True, validator=config_file.validate_bool)
-            self._add_config('connection.%s.is_verbose' % connection.name, value=connection.is_verbose, validator=config_file.validate_bool)
-            self._add_config('connection.%s.timeout' % connection.name, value=connection.timeout, validator=float)
+                self._add_config(
+                    'connection.%s.url' % connection.name,
+                    value=connection.url
+                )
+            self._add_config(
+                'connection.%s.is_active' % connection.name,
+                value=True,
+                validator=config_file.validate_bool
+            )
+            self._add_config(
+                'connection.%s.is_verbose' % connection.name,
+                value=connection.is_verbose,
+                validator=config_file.validate_bool
+            )
+            self._add_config(
+                'connection.%s.timeout' % connection.name,
+                value=connection.timeout,
+                validator=float
+            )
 
     def act_add_database(self):
         if self.database:
@@ -161,34 +193,74 @@ class Parser(object):
         else:
             database = Database(*self.args, **self.kwargs)
             self.database = database
-            self._add_config('db.is_active', value=database.is_active, validator=config_file.validate_bool)
+            self._add_config(
+                'db.is_active',
+                value=database.is_active,
+                validator=config_file.validate_bool,
+            )
             self._add_config('db.user', value=database.user)
             self._add_config('db.password', value=database.password)
             self._add_config('db.database', value=database.database)
             self._add_config('db.host', value=database.host, env='MYSQL_HOST')
-            self._add_config('db.port', value=database.port, validator=config_file.validate_int)
+            self._add_config(
+                'db.port',
+                value=database.port,
+                validator=config_file.validate_int,
+            )
             self._add_config('db.isolation', value=database.isolation)
-            self._add_config('db.timeout', value=database.timeout, validator=float)
-            self._add_config('db.long_query', value=database.long_query, validator=float)
-            self._add_config('db.fsm_trace', value=database.fsm_trace, validator=config_file.validate_bool, env='SPINDRIFT_DB_FSM_TRACE')
+            self._add_config(
+                'db.timeout',
+                value=database.timeout,
+                validator=float,
+            )
+            self._add_config(
+                'db.long_query',
+                value=database.long_query,
+                validator=float,
+            )
+            self._add_config(
+                'db.fsm_trace',
+                value=database.fsm_trace,
+                validator=config_file.validate_bool,
+                env='SPINDRIFT_DB_FSM_TRACE',
+            )
 
     def act_add_header(self):
         header = Header(*self.args, **self.kwargs)
-        if header.default is None and header.config is None and header.code is None:
-            self.error = 'header must have a default, config or code setting: %s' % header.key
+        if header.default is None \
+                and header.config is None \
+                and header.code is None:
+            self.error = \
+                'header must have a default, config or code setting: %s' % (
+                    header.key,
+                )
         else:
             self.connection.add_header(header)
             if header.config:
-                self._add_config('connection.%s.header.%s' % (self.connection.name, header.config), value=header.default)
+                self._add_config('connection.%s.header.%s' % (
+                    self.connection.name,
+                    header.config),
+                    value=header.default,
+                )
 
     def act_add_resource_header(self):
         header = Header(*self.args, **self.kwargs)
-        if header.default is None and header.config is None and header.code is None:
-            self.error = 'header must have a default, config or code setting: %s' % header.key
+        if header.default is None \
+                and header.config is None \
+                and header.code is None:
+            self.error = \
+                'header must have a default, config or code setting: %s' % (
+                    header.key,
+                )
         else:
             self.connection.add_resource_header(header)
             if header.config:
-                self._add_config('connection.%s.resource.%s.header.%s' % (self.connection.name, self.connection._resource.name, header.config), value=header.default)
+                self._add_config('connection.%s.resource.%s.header.%s' % (
+                    self.connection.name,
+                    self.connection._resource.name,
+                    header.config),
+                    value=header.default,
+                )
 
     def act_add_method(self):
         self.server.add_method(Method(self.event, *self.args, **self.kwargs))
@@ -201,7 +273,14 @@ class Parser(object):
         optional = Optional(*self.args, **self.kwargs)
         resource = self.connection.add_optional(optional)
         if optional.config:
-            self._add_config('connection.%s.resource.%s.%s' % (self.connection.name, resource.name, optional.config), value=optional.default, validator=optional.validate)
+            self._add_config(
+                'connection.%s.resource.%s.%s' % (
+                    self.connection.name,
+                    resource.name,
+                    optional.config),
+                value=optional.default,
+                validator=optional.validate,
+            )
 
     def act_add_resource(self):
         resource = Resource(*self.args, **self.kwargs)
@@ -209,9 +288,16 @@ class Parser(object):
             self.error = 'duplicate connection resource: %s' % resource.name
         else:
             self.connection.add_resource(resource)
+            if resource.is_verbose is not None:
+                value = config_file.validate_bool(resource.is_verbose)
+            else:
+                value = None
             self._add_config(
-                'connection.%s.resource.%s.is_verbose' % (self.connection.name, resource.name),
-                value=config_file.validate_bool(resource.is_verbose) if resource.is_verbose is not None else None,
+                'connection.%s.resource.%s.is_verbose' % (
+                    self.connection.name,
+                    resource.name,
+                ),
+                value=value,
                 validator=config_file.validate_bool,
             )
 
@@ -225,15 +311,44 @@ class Parser(object):
         else:
             self.servers[server.name] = server
             self.server = server
-            self._add_config('server.%s.port' % server.name, value=server.port, validator=config_file.validate_int)
-            self._add_config('server.%s.is_active' % server.name, value=True, validator=config_file.validate_bool)
-            self._add_config('server.%s.ssl.is_active' % server.name, value=False, validator=config_file.validate_bool)
-            self._add_config('server.%s.ssl.keyfile' % server.name, validator=config_file.validate_file)
-            self._add_config('server.%s.ssl.certfile' % server.name, validator=config_file.validate_file)
+            self._add_config(
+                'server.%s.port' % server.name,
+                value=server.port,
+                validator=config_file.validate_int,
+            )
+            self._add_config(
+                'server.%s.is_active' % server.name,
+                value=True,
+                validator=config_file.validate_bool,
+            )
+            self._add_config(
+                'server.%s.ssl.is_active' % server.name,
+                value=False,
+                validator=config_file.validate_bool,
+            )
+            self._add_config(
+                'server.%s.ssl.keyfile' % server.name,
+                validator=config_file.validate_file,
+            )
+            self._add_config(
+                'server.%s.ssl.certfile' % server.name,
+                validator=config_file.validate_file,
+            )
 
-            self._add_config('server.%s.http_max_content_length' % server.name, validator=config_file.validate_int)
-            self._add_config('server.%s.http_max_line_length' % server.name, validator=config_file.validate_int, value=10000)
-            self._add_config('server.%s.http_max_header_count' % server.name, validator=config_file.validate_int, value=100)
+            self._add_config(
+                'server.%s.http_max_content_length' % server.name,
+                validator=config_file.validate_int,
+            )
+            self._add_config(
+                'server.%s.http_max_line_length' % server.name,
+                validator=config_file.validate_int,
+                value=10000,
+            )
+            self._add_config(
+                'server.%s.http_max_header_count' % server.name,
+                validator=config_file.validate_int,
+                value=100,
+            )
 
     def act_add_setup(self):
         if len(self.args) > 1:
@@ -259,7 +374,11 @@ class Config(object):
 
     @property
     def kwargs(self):
-        return {'value': self.default, 'validator': self.validate, 'env': self.env}
+        return {
+            'value': self.default,
+            'validator': self.validate,
+            'env': self.env,
+        }
 
 
 class Log(object):
@@ -278,7 +397,11 @@ class Server(object):
         self.routes = []
 
     def __repr__(self):
-        return 'Server[name=%s, port=%s, routes=%s]' % (self.name, self.port, self.routes)
+        return 'Server[name=%s, port=%s, routes=%s]' % (
+            self.name,
+            self.port,
+            self.routes,
+        )
 
     def add_route(self, route):
         self.routes.append(route)
@@ -310,7 +433,19 @@ class Method(object):
 
 class Database(object):
 
-    def __init__(self, is_active=True, user=None, password=None, database=None, host=None, port=3306, isolation='READ COMMITTED', timeout=60.0, long_query=0.5, fsm_trace=False):
+    def __init__(
+                self,
+                is_active=True,
+                user=None,
+                password=None,
+                database=None,
+                host=None,
+                port=3306,
+                isolation='READ COMMITTED',
+                timeout=60.0,
+                long_query=0.5,
+                fsm_trace=False
+            ):
         self.is_active = is_active
         self.user = user
         self.password = password
@@ -325,7 +460,19 @@ class Database(object):
 
 class Connection(object):
 
-    def __init__(self, name, url=None, is_json=True, is_verbose=True, timeout=5.0, handler=None, wrapper=None, setup=None, is_form=False, code=None):
+    def __init__(
+                self,
+                name,
+                url=None,
+                is_json=True,
+                is_verbose=True,
+                timeout=5.0,
+                handler=None,
+                wrapper=None,
+                setup=None,
+                is_form=False,
+                code=None
+            ):
         self.name = name
         self.url = url
         self.is_json = config_file.validate_bool(is_json)
@@ -342,7 +489,10 @@ class Connection(object):
         self._resource = None
 
     def __repr__(self):
-        return '\n'.join(['connection.%s.%s' % (self.name, r) for r in self.resources.values()])
+        return '\n'.join([
+            'connection.%s.%s' % (self.name, r)
+            for r in self.resources.values()
+        ])
 
     def __contains__(self, name):
         return name in self.resources
@@ -374,23 +524,42 @@ class Header(object):
         self.code = code
 
     def __repr__(self):
-        return 'Header[key=%s, dft=%s, cfg=%s, cod=%s]' % (self.key, self.default, self.config, self.code)
+        return 'Header[key=%s, dft=%s, cfg=%s, cod=%s]' % (
+            self.key, self.default, self.config, self.code
+        )
 
 
 class Resource(object):
 
-    def __init__(self, name, path, method='GET', is_json=None, is_verbose=None, trace=None, timeout=None, handler=None, wrapper=None, setup=None, is_form=None):
+    def __init__(
+                self,
+                name,
+                path,
+                method='GET',
+                is_json=None,
+                is_verbose=None,
+                trace=None,
+                timeout=None,
+                handler=None,
+                wrapper=None,
+                setup=None,
+                is_form=None
+            ):
         self.name = name
         self.path = path
         self.method = method
-        self.is_json = config_file.validate_bool(is_json) if is_json is not None else None
-        self.is_verbose = config_file.validate_bool(is_verbose) if is_verbose is not None else None
-        self.trace = config_file.validate_bool(trace) if trace is not None else None
+        self.is_json = config_file.validate_bool(is_json) \
+            if is_json is not None else None
+        self.is_verbose = config_file.validate_bool(is_verbose) \
+            if is_verbose is not None else None
+        self.trace = config_file.validate_bool(trace) \
+            if trace is not None else None
         self.timeout = float(timeout) if timeout is not None else None
         self.handler = handler
         self.wrapper = wrapper
         self.setup = setup
-        self.is_form = config_file.validate_bool(is_form) if is_form is not None else None
+        self.is_form = config_file.validate_bool(is_form) \
+            if is_form is not None else None
 
         self.required = []
         self.optional = {}
