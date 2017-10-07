@@ -28,7 +28,6 @@ def test_default():
 
 def test_calculated(db):
 
-    test = {'is_loaded': False}
     FOO = 20
     BAR = 30
     FOOBAR = FOO + BAR
@@ -37,7 +36,7 @@ def test_calculated(db):
         assert rc == 0
         assert result.foobar == result.foo + result.bar
         assert result.foobar == FOOBAR
-        test['is_loaded'] = True
+        db.is_done = True
 
     def on_save(rc, result):
         assert rc == 0
@@ -45,7 +44,4 @@ def test_calculated(db):
 
     p = Parent(foo=FOO, bar=BAR)
     p.save(on_save, cursor=db.cursor)
-
     db.run()
-
-    assert test['is_loaded']

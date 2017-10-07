@@ -254,9 +254,8 @@ class DAO(object):
         if self.is_new:
             return callback(1, "an unsaved DAO can't have children")
         child = cls.TABLE
-        cls.query().where('%s.%s_id = %%s' % (child, self.TABLE)).execute(
-            callback, self.id, cursor=cursor
-        )
+        where = '%s.%s_id = %%s' % (child, self.TABLE)
+        cls.query().where(where).execute(callback, self.id, cursor=cursor)
 
     def foreign(self, callback, cls, cursor=None):
         """ Get the instance of cls to which self has a foreign_key reference.
@@ -277,7 +276,8 @@ class DAO(object):
         foreign_id = getattr(self, '%s_id' % foreign)
         if not foreign_id:
             return callback(0, None)
-        cls.query().where('%s.id = %%s' % foreign).execute(
+        where = '%s.id = %%s' % foreign
+        cls.query().where(where).execute(
             callback, foreign_id, one=True, cursor=cursor
         )
 

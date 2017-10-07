@@ -17,6 +17,7 @@ def test_save(db):
     def on_save(rc, result):
         assert rc == 0
         assert isinstance(result.id, int)
+        db.is_done = True
 
     Parent(foo=10).save(on_save, cursor=db.cursor)
     db.run()
@@ -27,6 +28,7 @@ def test_simultaneous(db):
     def on_save(rc, result):
         assert rc != 0
         assert result == 'query started before last query ended'
+        db.is_done = True
 
     Parent(foo=10).save(on_save, cursor=db.cursor)
     Parent(foo=10).save(on_save, cursor=db.cursor)
@@ -37,6 +39,7 @@ def test_missing_null_field(db):
     def on_save(rc, result):
         assert rc != 0
         assert result == "Column 'foo' cannot be null"
+        db.is_done = True
 
     Parent().save(on_save, cursor=db.cursor)
     db.run()
@@ -44,12 +47,10 @@ def test_missing_null_field(db):
 
 def test_reload(db):
 
-    test = {'is_loaded': False}
-
     def on_load(rc, result):
         assert rc == 0
         assert result.foo == 123
-        test['is_loaded'] = True
+        db.is_done = True
 
     def on_save(rc, result):
         assert rc == 0
@@ -57,21 +58,17 @@ def test_reload(db):
 
     p = Parent(foo=123)
     p.save(on_save, cursor=db.cursor)
-
     db.run()
-
-    assert test['is_loaded']
 
 
 def test_insert(db):
 
-    test = {'is_loaded': False}
     ID = 7
 
     def on_load(rc, result):
         assert rc == 0
         assert result.foo == 123
-        test['is_loaded'] = True
+        db.is_done = True
 
     def on_insert(rc, result):
         assert rc == 0
@@ -80,21 +77,17 @@ def test_insert(db):
 
     p = Parent(foo=123)
     p.insert(on_insert, id=ID, cursor=db.cursor)
-
     db.run()
-
-    assert test['is_loaded']
 
 
 def test_delete(db):
 
-    test = {'is_loaded': False}
     ID = 7
 
     def on_load(rc, result):
         assert rc == 0
         assert result is None
-        test['is_loaded'] = True
+        db.is_done = True
 
     def on_delete(rc, result):
         assert rc == 0
@@ -106,7 +99,4 @@ def test_delete(db):
 
     p = Parent(foo=123)
     p.insert(on_insert, id=ID, cursor=db.cursor)
-
     db.run()
-
-    assert test['is_loaded']

@@ -38,6 +38,9 @@ def db(db_cursor, network):
 
     class _db(object):
 
+        def __init__(self):
+            self.is_done = False
+
         @property
         def cursor(self):
             return db_cursor
@@ -45,6 +48,8 @@ def db(db_cursor, network):
         def run(self):
             while db_cursor.is_running:
                 network.service()
+
     d = _db()
     db_cursor.start_transaction()  # never ends (forces rollback)
     yield d
+    assert d.is_done  # set is_done at last step of test (ensures full test)

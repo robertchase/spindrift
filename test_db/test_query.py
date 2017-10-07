@@ -74,6 +74,7 @@ def test_simple(data, db):
     def on_child(rc, result):
         assert rc == 0
         assert result is not None
+        db.is_done = True
 
     Child.by_name(on_child, CHILD1, db.cursor)
     db.run()
@@ -85,6 +86,7 @@ def test_list_all(data, db):
         assert rc == 0
         names = set([r.name for r in result])
         assert set((CHILD1, CHILD2)) == names
+        db.is_done = True
 
     Child.list(on_list, cursor=db.cursor)
     db.run()
@@ -96,6 +98,7 @@ def test_list_where(data, db):
         assert rc == 0
         assert len(result) == 1
         assert result[0].name == CHILD1
+        db.is_done = True
 
     Child.list(on_list, where='name=%s', args=CHILD1, cursor=db.cursor)
     db.run()
@@ -106,29 +109,52 @@ def test_count_all(data, db):
     def on_count(rc, result):
         assert rc == 0
         assert result == 2
+        db.is_done = True
 
     Child.count(on_count, cursor=db.cursor)
     db.run()
 
 
-'''
-def test_children(data):
-    p = next(Parent.list())
-    c = p.children(Child)
-    assert len(c) == 2
+def test_join(data, db):
+
+    def on_join(rc, result):
+        assert rc == 0
+        assert len(result) == 2
+        names = set([p.child.name for p in result])
+        assert set((CHILD1, CHILD2)) == names
+        db.is_done = True
+
+    Parent.query().join(Child).execute(on_join, cursor=db.cursor)
+    db.run()
 
 
-def test_children_by_property(data):
-    p = next(Parent.list())
-    c = p.child
-    assert len(c) == 2
+def test_children(data, db):
+
+    def on_children(rc, result):
+        assert rc == 0
+        assert len(result) == 2
+        names = set([c.name for c in result])
+        assert set((CHILD1, CHILD2)) == names
+        db.is_done = True
+
+    def on_parent(rc, result):
+        assert rc == 0
+        result.children(on_children, Child, cursor=db.cursor)
+
+    Parent.query().execute(on_parent, one=True, cursor=db.cursor)
+    db.run()
 
 
-def test_join(data):
-    rs = Parent.query().join(Child).execute()
-    assert len(rs) == 2
-    names = [p.child.name for p in rs]
-    assert len(names) == 2
-    assert 'fred' in names
-    assert 'sally' in names
-'''
+def test_foreign(data, db):
+
+    def on_parent(rc, result):
+        assert rc == 0
+        assert result is not None
+        db.is_done = True
+
+    def on_child(rc, result):
+        assert rc == 0
+        result.foreign(on_parent, Parent, cursor=db.cursor)
+
+    Child.query().execute(on_child, one=True, cursor=db.cursor)
+    db.run()
