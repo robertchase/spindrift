@@ -33,7 +33,7 @@ The config file, if it exists, is read after parsing the `micro` file, and overr
 previously specified defaults.
 Treat the `micro` file as code, and use the config file for runtime configuration.
 
-Boolean values, for instance *is_debug*, can be any case-insensitive
+Boolean values, for instance *is_debug*, can be set to any case-insensitive
 version of *true* or *false*.
 
 ## Directives
@@ -45,8 +45,8 @@ LOG name=MICRO level=debug is_stdout=true
 ```
 
 The `log` directive overrides default logging behavior for *spindrift*.
-By default, log messages are created with the *TAG* `MICRO`, log level
-is set to `DEBUG` and messages are sent to stdout.
+By default, log messages are created with the *TAG* `MICRO`, with log level
+set to `DEBUG` and with messages sent to stdout.
 The value for `log.level` is case insensitive, and can be any
 valid log level, typically, *debug* or *info*.
 
@@ -115,7 +115,7 @@ Here, the function `get` in the program `myservice/handlers.user.py` will be cal
 when an HTTP document's method matches `GET` and the path matches `/users/123` (or any number).
 
 The function `update` in the program `myservice/handlers.user.py` will be called
-when an HTTP document's method matches `POST` and the path matches `/users/456` (or any number).
+when an HTTP document's method matches `PUT` and the path matches `/users/456` (or any number).
 
 ### DATABASE
 
@@ -265,7 +265,7 @@ HEADER key default=None config=None code=None
 
 The `header` directive defines an HTTP header for the most recently defined `resource` or `connection`.
 
-An HTTP header record of the form:
+An HTTP header record is of the form:
 
 ```
 [key]: [value]
@@ -308,7 +308,7 @@ The `resource` directive defines a resource bound to the most recent `connection
 
 ##### micro function
 
-The `resource` create a function on `spindrift.micro.micro` that looks like this:
+The `resource` creates a function on `spindrift.micro.micro` that looks like this:
 
 ```
 micro.connection.[name].resource.[name](callback, *args, **kwargs)
@@ -330,6 +330,15 @@ The `args` are used, in order, to modify the path, and then to satisfy the `requ
 The number of `args` must match the number of substitution parameters plus the number of `required` directives.
 
 The `kwargs` are used to supply `optional` directive values.
+
+##### forming the body
+
+The HTTP body is, by default, a jsonified dict formed from the
+`required` arguments and the `optional` arguments.
+
+The `required` arguments are added to the dict using the argument's `name` as the key;
+all `optional` arguments are added in a similar fashion.
+If no `required` or `optional` arguments are specified, then the body is empty.
 
 ##### parameters
 `name` - name of the `resource`
