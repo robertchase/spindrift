@@ -18,7 +18,7 @@ class Action(object):
 
 def test_no_start():
     t = timer.Timer()
-    a = Action() 
+    a = Action()
     t.add(a.a1, 15)
     t.add(a.a2, 10)
     assert len(t) == 0
@@ -30,7 +30,7 @@ def test_no_start():
 
 def test_start_one():
     t = timer.Timer()
-    a = Action() 
+    a = Action()
     t.add(a.a1, 15).start()
     t.add(a.a2, 10)
     assert len(t) == 1
@@ -42,7 +42,7 @@ def test_start_one():
 
 def test_start_all():
     t = timer.Timer()
-    a = Action() 
+    a = Action()
     t.add(a.a1, 15).start()
     t.add(a.a2, 10).start()
     assert len(t) == 2
@@ -54,7 +54,7 @@ def test_start_all():
 
 def test_start_restart():
     t = timer.Timer()
-    a = Action() 
+    a = Action()
     t.add(a.a1, 10).start()
     t2 = t.add(a.a2, 20).start()
     time.sleep(.015)
@@ -70,7 +70,7 @@ def test_start_restart():
 
 def test_start_cancel():
     t = timer.Timer()
-    a = Action() 
+    a = Action()
     t.add(a.a1, 10).start()
     t2 = t.add(a.a2, 20).start()
     time.sleep(.015)
