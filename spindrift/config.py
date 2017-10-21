@@ -4,7 +4,8 @@ The MIT License (MIT)
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import os
-import re
+
+import spindrift.string_util as string_util
 
 
 class Config (object):
@@ -133,22 +134,22 @@ class Config (object):
 
         for lineno, line in enumerate(config, start=1):
 
-            m = re.match(r'(.*?[^\\])?#', line)  # look for first non-escaped comment indicator ('#')
-            if m:
-                line = m.group(1) if m.group(1) is not None else ''  # grab everything before the '#' (could be None if full-line comment)
-            line = line.replace('\#', '#')
+            line = string_util.un_comment(line)
             line = line.strip()
             if 0 == len(line):
                 continue
 
-            match = re.match(r'([\w\.]+?)\s*=\s*(.*)$', line)
-            if match:
-                try:
-                    self._set(match.group(1), match.group(2))
-                except Exception as e:
-                    raise Exception('Error on line %d of config: %s' % (lineno, e))
-            else:
-                raise ValueError('Error on line %d of config: invalid syntax' % lineno)
+            try:
+                key, value = line.split('=', 1)
+                self._set(key.strip(), value.strip())
+            except ValueError:
+                raise ValueError(
+                    'Error on line {} of config: invalid syntax'.format(lineno)
+                )
+            except Exception as e:
+                raise Exception(
+                    'Error on line {} of config: {}'.format(lineno, e)
+                )
 
 
 class ConfigItem (object):
@@ -179,9 +180,16 @@ def validate_int(value):
 
 
 def validate_bool(value):
+    if value in (0, 1):
+        return (False, True)[value]
     if value in (True, False):
         return value
-    return {'TRUE': True, 'FALSE': False}[value.upper()]
+    try:
+        return {'TRUE': True, 'FALSE': False}[value.upper()]
+    except AttributeError:
+        raise ValueError
+    except KeyError:
+        raise ValueError
 
 
 def validate_file(value):
