@@ -14,6 +14,44 @@ import logging
 log = logging.getLogger(__name__)
 
 
+class ParserException(Exception):
+    pass
+
+
+class ParserFileException(ParserException):
+    def __init__(self, fname, line, msg=None):
+        if msg:
+            msg = '{}, file={}, line={}'.format(msg, fname, line)
+        else:
+            msg = 'file={}, line={}'.format(fname, line)
+        super(ParserFileException, self).__init__(msg)
+
+
+class RecursiveMicro(ParserException):
+    def __init__(self, micro):
+        super(RecursiveMicro, self).__init__(
+            'name={}'.format(micro)
+        )
+
+
+class InvalidMicroSpecification(ParserException):
+    def __init__(self, micro):
+        super(InvalidMicroSpecification, self).__init__(
+            'name={}'.format(micro)
+        )
+
+
+class IncompleteLine(ParserException):
+    pass
+
+
+class UnexpectedDirective(ParserException):
+    def __init__(self, directive, fname, line):
+        super(UnexpectedDirective, self).__init__(
+            fname, line, 'directive={}'.format(directive)
+        )
+
+
 def to_args(line):
     args = []
     kwargs = {}
@@ -40,16 +78,13 @@ def load(micro='micro', files=None, lines=None):
 
     if isinstance(micro, str):
         if micro in files:
-            raise Exception(
-                'a micro file (in this case, %s) cannot be recursively imported' %
-                micro,
-            )
+            raise RecursiveMicro(micro)
         files.append(micro)
         micro = open(micro).readlines()
     elif isinstance(micro, list):
-        files.append('dict')
+        files.append('list')
     else:
-        raise Exception('Invalid micro file type %s' % type(micro))
+        raise InvalidMicroSpecification(micro)
 
     fname = files[-1]
 
@@ -58,9 +93,7 @@ def load(micro='micro', files=None, lines=None):
         if len(line):
             line = line.split(' ', 1)
             if len(line) == 1:
-                raise Exception(
-                    'too few tokens, file=%s, line=%d' % (fname, num)
-                )
+                raise IncompleteLine(fname, num)
             if line[0].lower() == 'import':
                 import_fname = normalize_path(line[1], 'micro', parent=path)
                 load(import_fname, files, lines)
@@ -100,23 +133,20 @@ class Parser(object):
         self._config_servers = {}
         self.servers = {}
 
-    @property
-    def is_new(self):
-        return len(self._config_servers) == 0
-
     @classmethod
     def parse(cls, micro='micro'):
         parser = cls()
         for fname, num, parser.event, parser.line in load(micro):
             parser.args, parser.kwargs = to_args(parser.line)
-            if not parser.fsm.handle(parser.event.lower()):
-                raise Exception(
-                    "Unexpected directive '%s', file=%s, line=%d" % (
-                        parser.event, fname, num
-                    )
-                )
-            if parser.error:
-                raise Exception('%s, line=%d' % (parser.error, num))
+            try:
+                if not parser.fsm.handle(parser.event.lower()):
+                    raise UnexpectedDirective(parser.event, fname, num)
+                if parser.error:
+                    raise Exception(parser.error)
+            except ParserException:
+                raise
+            except Exception as e:
+                raise ParserFileException(fname, num, str(e))
         return parser
 
     def _add_config(self, name, **kwargs):
@@ -131,7 +161,9 @@ class Parser(object):
                     'file': config_file.validate_file,
                 }[self.kwargs['validate']]
             except KeyError:
-                raise Exception("validate must be one of 'int', 'bool', 'file'")
+                raise ValueError(
+                    "validate must be one of 'int', 'bool', 'file'"
+                )
 
     def act_add_config(self):
         self._normalize_validator()
@@ -490,7 +522,7 @@ class Connection(object):
 
     def __repr__(self):
         return '\n'.join([
-            'connection.%s.%s' % (self.name, r)
+            'connection.{}.{}'.format(self.name, r)
             for r in self.resources.values()
         ])
 
