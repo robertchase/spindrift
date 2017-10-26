@@ -3,12 +3,11 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-import re
-
 import spindrift.config as config_file
 from spindrift.file_util import normalize_path
 from spindrift.micro_fsm.connect import parse_substitution
 from spindrift.micro_fsm.fsm_micro import create as create_machine
+import spindrift.string_util as string_util
 
 import logging
 log = logging.getLogger(__name__)
@@ -50,21 +49,6 @@ class UnexpectedDirective(ParserException):
         super(UnexpectedDirective, self).__init__(
             fname, line, 'directive={}'.format(directive)
         )
-
-
-def to_args(line):
-    args = []
-    kwargs = {}
-    for tok in line.split():
-        nvp = re.split(r'(?<!\\)=', tok, 1)  # split by first non-escaped equal sign
-        if len(nvp) == 2:
-            n, v = nvp
-            n = n.replace('\=', '=')
-            v = v.replace('\=', '=')
-            kwargs[n] = v
-        else:
-            args.append(tok.replace('\=', '='))
-    return args, kwargs
 
 
 def load(micro='micro', files=None, lines=None):
@@ -137,7 +121,7 @@ class Parser(object):
     def parse(cls, micro='micro'):
         parser = cls()
         for fname, num, parser.event, parser.line in load(micro):
-            parser.args, parser.kwargs = to_args(parser.line)
+            parser.args, parser.kwargs = string_util.to_args(parser.line)
             try:
                 if not parser.fsm.handle(parser.event.lower()):
                     raise UnexpectedDirective(parser.event, fname, num)

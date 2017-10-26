@@ -54,7 +54,7 @@ class Atom(object):
 
     @property
     def is_space(self):
-        return self.c == ' '
+        return self.c.isspace()
 
 
 class Token(object):
@@ -123,6 +123,38 @@ class Token(object):
         self.value += atom.c
 
 
+class ToArgsException(Exception):
+    pass
+
+
+class InvalidStartCharacter(ToArgsException):
+    pass
+
+
+class ConsecutiveEqual(ToArgsException):
+    pass
+
+
+class UnexpectedCharacter(ToArgsException):
+    pass
+
+
+class ExpectingKey(ToArgsException):
+    pass
+
+
+class DuplicateKey(ToArgsException):
+    pass
+
+
+class ConsecutiveKeys(ToArgsException):
+    pass
+
+
+class IncompleteKeyValue(ToArgsException):
+    pass
+
+
 def to_tokens(s):
     tokens = []
     token = Token()
@@ -137,9 +169,9 @@ def to_tokens(s):
         if result == 'equal':
             if token.is_new:
                 if len(tokens) == 0:
-                    raise Exception('line cannot start with equal')
+                    raise InvalidStartCharacter()
                 if tokens[-1].is_key:
-                    raise Exception('equal cannot follow equal')
+                    raise ConsecutiveEqual()
                 tokens[-1].is_key = True
             else:
                 token.is_key = True
@@ -147,7 +179,7 @@ def to_tokens(s):
                 token = Token()
             continue
         if result == 'invalid':
-            raise Exception('unexpected character: {}'.format(c))
+            raise UnexpectedCharacter(a.c)
 
     if not token.is_new:
         tokens.append(token)
@@ -156,11 +188,11 @@ def to_tokens(s):
 
 
 def to_args(s):
-    """ parse a string like a set of function arguments
+    """ parse a string into args and kwargs
 
         the input is a blank-delimited set of tokens, which may be grouped
         as strings (tick or double tick delimited) with embedded blanks.
-        non-string equals (=) act as delimiters between key-value pairs.
+        a non-string equal (=) acts as a delimiter between key-value pairs.
 
         the initial tokens are treated as args, followed by key-value pairs.
 
@@ -175,7 +207,8 @@ def to_args(s):
 
         Return:
 
-            args and kwargs
+            args as list
+            kwargs as dict
 
         Notes:
 
@@ -199,20 +232,18 @@ def to_args(s):
                 args.append(token.value)
         elif state == 'key':
             if not token.is_key:
-                raise Exception('expecting key at: {}'.format(
-                    token.value
-                ))
+                raise ExpectingKey(token.value)
             key = token.value
+            if key in kwargs:
+                raise DuplicateKey(key)
             state = 'value'
         elif state == 'value':
             if token.is_key:
-                raise Exception('two consecutive keys found at: {}'.format(
-                    token.value
-                ))
+                raise ConsecutiveKeys(token.value)
             kwargs[key] = token.value
             state = 'key'
 
     if state == 'value':
-        raise Exception('incomplete key-value pair at: {}'.format(key))
+        raise IncompleteKeyValue(key)
 
     return args, kwargs
