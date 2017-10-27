@@ -46,7 +46,7 @@ def test_log(par):
     assert p
     assert p.log.name == 'test'
     assert p.log.level == 'info'
-    assert p.log.is_stdout == 'false'
+    assert not p.log.is_stdout
     with pytest.raises(parser.ParserFileException):
         par.parse(['log name=test level=info is_stdout=false foo=bar'])
 
@@ -117,3 +117,85 @@ def test_method(par):
     t = r[1]
     assert t.pattern == 'xyz'
     assert len(t.methods) == 3
+
+
+def test_database(par):
+    p = par.parse([])
+    assert p.database is None
+    p = par.parse(['database is_active=true'])
+    assert p
+    assert p.database.is_active
+    assert p.database.user is None
+    assert p.database.password is None
+    assert p.database.database is None
+    assert p.database.host is None
+    assert p.database.port == 3306
+    assert p.database.isolation == 'READ COMMITTED'
+    assert p.database.timeout == 60.0
+    assert p.database.long_query == 0.5
+    assert not p.database.fsm_trace
+    p = par.parse([
+        (
+            'database'
+            ' is_active=false'
+            ' user=foo password=bar database=yeah'
+            ' host=localhost port=1234'
+            " isolation='READ UNCOMMITTED'"
+            ' timeout=42.5 long_query=1.0 fsm_trace=true'
+        )
+    ])
+    assert p
+    assert not p.database.is_active
+    assert p.database.user == 'foo'
+    assert p.database.password == 'bar'
+    assert p.database.database == 'yeah'
+    assert p.database.host == 'localhost'
+    assert p.database.port == 1234
+    assert p.database.isolation == 'READ UNCOMMITTED'
+    assert p.database.timeout == 42.5
+    assert p.database.long_query == 1.0
+    assert p.database.fsm_trace
+
+
+def test_connection(par):
+    p = par.parse([])
+    assert len(p.connections) == 0
+
+    p = par.parse(['connection foo url'])
+    assert p
+    c = p.connections['foo']
+    assert c
+    assert c.url == 'url'
+    assert c.is_json
+    assert c.is_verbose
+    assert c.timeout == 5.0
+    assert c.handler is None
+    assert c.wrapper is None
+    assert c.setup is None
+    assert not c.is_form
+    assert c.code is None
+
+    p = par.parse([(
+        'connection foo'
+        ' url=http://123.com'
+        ' is_json=false'
+        ' is_verbose=false'
+        ' timeout=10.0'
+        ' handler=a.b.c'
+        ' wrapper=j.z'
+        ' setup=whatever'
+        ' is_form=true'
+        ' code=rocks'
+    )])
+    assert p
+    c = p.connections['foo']
+    assert c
+    assert c.url == 'http://123.com'
+    assert not c.is_json
+    assert not c.is_verbose
+    assert c.timeout == 10.0
+    assert c.handler == 'a.b.c'
+    assert c.wrapper == 'j.z'
+    assert c.setup == 'whatever'
+    assert c.is_form
+    assert c.code == 'rocks'

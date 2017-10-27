@@ -120,7 +120,7 @@ when an HTTP document's method matches `PUT` and the path matches `/users/456` (
 ### DATABASE
 
 ```
-DATABASE is_active=true user=None database=None host=None port=3306 isolation='READ COMMITTED', timeout=60.0 long_query=0.5 fsm_trace=False
+DATABASE is_active=true user=None database=None host=None port=3306 isolation='READ COMMITTED' timeout=60.0 long_query=0.5 fsm_trace=False
 ```
 
 The `database` directive defines a connection to a MySQL database.

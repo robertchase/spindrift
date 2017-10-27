@@ -402,7 +402,7 @@ class Log(object):
     def __init__(self, name='MICRO', level='debug', is_stdout=True):
         self.name = name
         self.level = level
-        self.is_stdout = is_stdout
+        self.is_stdout = config_file.validate_bool(is_stdout)
 
 
 class Server(object):
@@ -462,16 +462,16 @@ class Database(object):
                 long_query=0.5,
                 fsm_trace=False
             ):
-        self.is_active = is_active
+        self.is_active = config_file.validate_bool(is_active)
         self.user = user
         self.password = password
         self.database = database
         self.host = host
-        self.port = port
+        self.port = int(port)
         self.isolation = isolation
         self.timeout = float(timeout)
         self.long_query = float(long_query)
-        self.fsm_trace = fsm_trace
+        self.fsm_trace = config_file.validate_bool(fsm_trace)
 
 
 class Connection(object):
