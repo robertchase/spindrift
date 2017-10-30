@@ -199,3 +199,73 @@ def test_connection(par):
     assert c.setup == 'whatever'
     assert c.is_form
     assert c.code == 'rocks'
+
+
+def test_resource(par):
+    p = par.parse(['connection test url'])
+    c = p.connections['test']
+    assert len(c.resources) == 0
+
+    p = par.parse([
+        'connection test url',
+        'resource foo path',
+    ])
+    c = p.connections['test']
+    r = c.resources['foo']
+    assert r.name == 'foo'
+    assert r.path == 'path'
+    assert r.method == 'GET'
+    assert r.is_json is None
+    assert r.is_verbose is None
+    assert r.trace is None
+    assert r.timeout is None
+    assert r.handler is None
+    assert r.wrapper is None
+    assert r.setup is None
+    assert r.is_form is None
+
+    p = par.parse([
+        'connection test url',
+        (
+            'resource foo path'
+            ' method="PUT"'
+            ' is_json=true'
+            ' is_verbose=false'
+            ' trace=TRUE'
+            ' timeout=20.0'
+            ' handler=abc'
+            ' wrapper=def'
+            ' setup=ghi'
+            ' is_form=FALSE'
+        ),
+    ])
+    c = p.connections['test']
+    r = c.resources['foo']
+    assert r.method == 'PUT'
+    assert r.is_json
+    assert not r.is_verbose
+    assert r.trace
+    assert r.timeout == 20.0
+    assert r.handler == 'abc'
+    assert r.wrapper == 'def'
+    assert r.setup == 'ghi'
+    assert not r.is_form
+
+    # c = p.connections['foo']
+    # assert c
+    # assert c.url == 'http://123.com'
+    # assert not c.is_json
+    # assert not c.is_verbose
+    # assert c.timeout == 10.0
+    # assert c.handler == 'a.b.c'
+    # assert c.wrapper == 'j.z'
+    # assert c.setup == 'whatever'
+    # assert c.is_form
+    # assert c.code == 'rocks'
+
+
+def test_header(par):
+    p = par.parse(['connection test url=http://123.com'])
+    assert p
+    c = p.connections['test']
+    assert len(c.headers) == 0
