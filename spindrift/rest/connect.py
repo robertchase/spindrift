@@ -245,7 +245,7 @@ class ConnectHandler(HTTPHandler):
 
     def on_close(self, reason):
         if self.context.is_debug:
-            now = time.time()
+            now = time.perf_counter()
             msg = 'close oid=%s, reason=%s, opn=%.4f,' % (
                 self.id,
                 reason,
