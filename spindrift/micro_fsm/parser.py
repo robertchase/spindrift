@@ -3,7 +3,7 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-import spindrift.config as config_file
+import ergaleia.config as config_file
 from spindrift.file_util import normalize_path
 from spindrift.micro_fsm.connect import parse_substitution
 from spindrift.micro_fsm.fsm_micro import create as create_machine
@@ -140,7 +140,7 @@ class Parser(object):
         if self.kwargs.get('validate') is not None:
             try:
                 self.kwargs['validate'] = {
-                    'int': config_file.validate_int,
+                    'int': int,
                     'bool': config_file.validate_bool,
                     'file': config_file.validate_file,
                 }[self.kwargs['validate']]
@@ -221,7 +221,7 @@ class Parser(object):
             self._add_config(
                 'db.port',
                 value=database.port,
-                validator=config_file.validate_int,
+                validator=int,
             )
             self._add_config('db.isolation', value=database.isolation)
             self._add_config(
@@ -330,7 +330,7 @@ class Parser(object):
             self._add_config(
                 'server.%s.port' % server.name,
                 value=server.port,
-                validator=config_file.validate_int,
+                validator=int,
             )
             self._add_config(
                 'server.%s.is_active' % server.name,
@@ -353,16 +353,16 @@ class Parser(object):
 
             self._add_config(
                 'server.%s.http_max_content_length' % server.name,
-                validator=config_file.validate_int,
+                validator=int,
             )
             self._add_config(
                 'server.%s.http_max_line_length' % server.name,
-                validator=config_file.validate_int,
+                validator=int,
                 value=10000,
             )
             self._add_config(
                 'server.%s.http_max_header_count' % server.name,
-                validator=config_file.validate_int,
+                validator=int,
                 value=100,
             )
 

@@ -235,9 +235,9 @@ def setup_servers(config, micro, servers):
             for method, path in route.methods.items():
                 methods[method] = _import(path)
             mapper.add(route.pattern, **methods)
-        if hasattr(conf, 'handler'):
+        try:
             handler = _import(conf.handler, is_module=True)
-        else:
+        except KeyError:
             handler = MicroHandler
         micro.network.add_server(
             port=conf.port,
