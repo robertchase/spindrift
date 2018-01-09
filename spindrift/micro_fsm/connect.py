@@ -161,10 +161,12 @@ class Resource(object):
             headers=headers,
             body=body,
             is_json=self.resource.is_json,
+            is_form=False,
             timeout=self.resource.timeout,
             wrapper=self.resource.wrapper,
             handler=self.resource.handler,
-            is_verbose=is_verbose or self.resource.is_verbose,
+            evaluate=None,
+            debug=is_verbose or self.resource.is_verbose,
             trace=trace or self.resource.trace,
         )
 
