@@ -5,7 +5,7 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import ergaleia.config as config_file
 from ergaleia.to_args import to_args
-from spindrift.file_util import normalize_path
+from ergaleia.normalize_path import normalize_path
 from spindrift.micro_fsm.connect import parse_substitution
 from spindrift.micro_fsm.fsm_micro import create as create_machine
 

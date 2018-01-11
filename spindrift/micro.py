@@ -9,8 +9,8 @@ import logging.config
 import platform
 import signal
 
+from ergaleia.normalize_path import normalize_path
 from spindrift.dao.db import DB
-import spindrift.file_util as file_util
 from spindrift.micro_fsm.handler import InboundHandler, MysqlHandler
 from spindrift.micro_fsm.parser import Parser as parser
 from spindrift.rest.handler import RESTContext
@@ -113,7 +113,7 @@ def _import(item_path, is_module=False):
 
 
 def _load(path):
-    path = file_util.normalize_path(path, filetype='micro')
+    path = normalize_path(path, filetype='micro')
     p = parser.parse(path)
     return p
 
