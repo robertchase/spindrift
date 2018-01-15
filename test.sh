@@ -10,7 +10,7 @@
 #
 # assumes: 1. docker is running
 #          2. a python3.6+ image is available ($TEST_IMAGE below)
-#             with mysql-client and pytest installed
+#             with pytest installed
 #          3. mysql container is running
 #          4. test_db/schema.sql has been run
 #
