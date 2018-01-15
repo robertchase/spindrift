@@ -5,7 +5,7 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import re
 
-from spindrift.import_utils import import_by_pathname
+from ergaleia.import_by_path import import_by_path
 
 import logging
 log = logging.getLogger(__name__)
@@ -71,8 +71,8 @@ class RESTMapping(object):
     def __init__(self, pattern, get, post, put, delete):
         self.pattern = re.compile(pattern)
         self.method = {
-            'get': import_by_pathname(get),
-            'post': import_by_pathname(post),
-            'put': import_by_pathname(put),
-            'delete': import_by_pathname(delete),
+            'get': import_by_path(get),
+            'post': import_by_path(post),
+            'put': import_by_path(put),
+            'delete': import_by_path(delete),
         }
