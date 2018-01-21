@@ -1,4 +1,4 @@
-from spindrift.fsm.FSM import STATE, EVENT, FSM
+from fsm.FSM import STATE, EVENT, FSM
 # add_config
 # add_connection
 # add_database

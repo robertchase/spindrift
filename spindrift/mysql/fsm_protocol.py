@@ -1,4 +1,4 @@
-from spindrift.fsm.FSM import STATE, EVENT, FSM
+from fsm.FSM import STATE, EVENT, FSM
 # authenticate
 # autocommit
 # check_query_response
