@@ -6,7 +6,7 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 import logging
 import string
 
-from spindrift.rest.connect import connect_parsed, URLParser
+from spindrift.connect import connect_parsed, URLParser
 from spindrift.micro_fsm.handler import OutboundHandler as MicroHandler
 
 

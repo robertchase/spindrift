@@ -7,7 +7,7 @@ import logging
 import time
 import traceback
 
-from spindrift.rest.connect import ConnectHandler
+from spindrift.connect import ConnectHandler
 from spindrift.rest.handler import RESTHandler
 import spindrift.mysql.connection as mysql_connection
 
