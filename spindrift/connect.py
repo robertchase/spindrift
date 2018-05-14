@@ -180,7 +180,7 @@ class ConnectHandler(HTTPHandler):
                 'starting outbound connection, oid=%s: %s %s',
                 self.id,
                 self.context.method,
-                self.context.url + self.context.path
+                self.context.url,
             )
 
     def _form(self, context):
