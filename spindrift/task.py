@@ -58,6 +58,7 @@ class Task(object):
 
         log.debug('task.call fn=%s %s', fn, 'as task' if task else '')
         fn(cb, *args, **kwargs)
+        return self
 
 
 def inspect_parameters(fn, kwargs):
