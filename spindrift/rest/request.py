@@ -217,9 +217,9 @@ class RESTRequest(object):
         task, cursor = inspect_parameters(fn, kwargs)
 
         if task:
-            cb = Task(cb, self.id, getattr(self, 'cursor'))
+            cb = Task(cb, self.id, getattr(self, 'cursor', None))
         elif cursor:
-            kwargs['cursor'] = getattr(self, 'cursor')
+            kwargs['cursor'] = getattr(self, 'cursor', None)
 
         try:
             log.debug(
@@ -242,8 +242,9 @@ class RESTRequest(object):
             elif len(self.http_query) > 0:
                 self._json = self.http_query
             else:
-                self._json = \
-                    {n: v for n, v in urlparse.parse_qsl(self.http_content)}
+                self._json = {}
+                for n, v in urlparse.parse_qs(self.http_content).items():
+                    self._json[n] = v[0] if len(v) == 1 else v
         return self._json
 
 
