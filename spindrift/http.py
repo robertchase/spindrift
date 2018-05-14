@@ -167,6 +167,7 @@ class HTTPHandler(Handler):
 
     def _setup(self):
         self.http_headers = {}
+        self.http_message = bytearray()
         self.http_content = bytearray()
         self.http_status_code = None
         self.http_status_message = None
@@ -182,6 +183,7 @@ class HTTPHandler(Handler):
         pass
 
     def on_data(self, data):
+        self.http_message.extend(data)
         self._data.extend(data)
         while self.is_open and self._state():
             pass
@@ -234,8 +236,8 @@ class HTTPHandler(Handler):
             self.http_query_string = ''
             if res.query:
                 self.http_query_string = res.query
-                for n, v in urlparse.parse_qsl(res.query):
-                    self.http_query[n] = v
+                for n, v in urlparse.parse_qs(res.query).items():
+                    self.http_query[n] = v[0] if len(v) == 1 else v
 
         if self.is_inbound:
             self.on_http_status(self.http_method, self.http_resource)
