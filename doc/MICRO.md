@@ -237,7 +237,7 @@ resolved any time it changes.
 
 [4] if function ends in timeout, the callback is invoked with `(1, 'timeout')`
 
-[5] handler is subclass of `spindrift.rest.connect.ConnectHandler`
+[5] handler is subclass of `spindrift.connect.ConnectHandler`
 
 [6] used to perform unusual setup logic
 (for instance rendering an XML document from `args` and `kwargs`);
