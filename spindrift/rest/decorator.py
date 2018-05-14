@@ -14,25 +14,26 @@ def content_to_json(*fields, **kwargs):
 
     The content must be a valid json document or a valid URI query string (as
     produced by a POSTed HTML form). If the content starts with a '[' or '{',
-    it is treated as json; else it is treated as a URI. The URI only expects
-    one value per key.
+    it is treated as json; else it is treated as a URI.
 
     Arguments:
-        fields - a list of field names. the names will be used to look up
-                 values in the json dictionary which are appended, in order,
-                 to the rest_handler's argument list. The specified fields
-                 must be present in the content.
+        fields  - a list of field names. the names will be used to look up
+                  values in the json dictionary which are appended, in order,
+                  to the rest_handler's argument list. The specified fields
+                  must be present in the content.
 
-                 if a field name is a tuple, then the first element is the name,
-                 which is treated as stated above, and the second element is
-                 a type conversion function which accepts the value and returns
-                 a new value. for instance ('a', int) will look up the value
-                 for 'a', and convert it to an int (or fail trying).
+                  if a field name is a tuple, then the first element is the
+                  name, which is treated as stated above, and the second
+                  element is a type conversion function which accepts the
+                  value and returns a new value. for instance ('a', int) will
+                  look up the value for 'a', and convert it to an int (or
+                  fail trying).
 
-                 if field name is a tuple with three elements, then the third
-                 element is a default value.
-        as_args - if true, append fields as described above, else add to decorated
-                  call as kwargs.
+                  if field name is a tuple with three elements, then the third
+                  element is a default value.
+
+        as_args - if true, append fields as described above, else add to
+                   decorated call as kwargs.
 
     Errors:
         400 - json conversion fails or specified fields not present in json
