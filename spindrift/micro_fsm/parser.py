@@ -79,7 +79,7 @@ def load(micro='micro', files=None, lines=None):
             if len(line) == 1:
                 raise IncompleteLine(fname, num)
             if line[0].lower() == 'import':
-                import_fname = normalize_path(line[1], 'micro', parent=path)
+                import_fname = normalize_path(line[1])
                 load(import_fname, files, lines)
             else:
                 lines.append((fname, num, line[0], line[1]))
