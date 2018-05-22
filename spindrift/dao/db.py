@@ -37,6 +37,7 @@ class DB(object):
             isolation=isolation,
             handler=handler or connection.MysqlHandler,
             commit=commit,
+            column=True,
         )
 
     @property

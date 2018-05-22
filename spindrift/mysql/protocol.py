@@ -192,7 +192,7 @@ class Protocol(object):
                     value = value.decode(encoding)
                 if converter:
                     value = converter(value)
-                row.append(value)
+            row.append(value)
         self.result.append(tuple(row))
 
     def _read_data_object(self):
@@ -204,7 +204,7 @@ class Protocol(object):
                     value = value.decode(encoding)
                 if converter:
                     value = converter(value)
-                row[name] = value
+            row[name] = value
         self.result.append(self._cls(**row))
 
     def act_query_complete(self):

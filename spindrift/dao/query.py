@@ -119,13 +119,14 @@ class Query(object):
             if rc != 0:
                 return callback(rc, result)
 
+            columns, values = result
             self._executed_stmt = cursor._executed
             if after_execute:
                 after_execute(self)
             rows = []
-            for rs in result:
+            for rs in values:
                 tables = None
-                row = [t for t in zip(self._column_names, rs)]
+                row = [t for t in zip(columns, rs)]
                 for c in self._classes:
                     count = len(c.FIELDS) + len(c.CALCULATED_FIELDS)
                     val, row = row[:count], row[count:]
