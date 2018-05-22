@@ -345,6 +345,7 @@ def stop(teardown):
 
 if __name__ == '__main__':
     import argparse
+    import os
 
     import spindrift.micro as module
 
@@ -355,7 +356,7 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     aparser.add_argument(
-        '--config', default='config', help='configuration file'
+        '--config', help='configuration file (default=config)'
     )
     aparser.add_argument(
         '--no-config', dest='no_config', default=False, action='store_true',
@@ -376,8 +377,18 @@ if __name__ == '__main__':
     )
     args = aparser.parse_args()
 
-    load_args = (args.micro,) if args.no_config else (args.micro, args.config)
-    m = module.micro.load(*load_args)
+    micro = args.micro
+    if args.no_config:
+        config = None
+    elif args.config is None:
+        if os.path.isfile('config'):
+            config = 'config'
+        else:
+            config = None
+    else:
+        config = args.config
+
+    m = module.micro.load(micro, config)
     if args.config_only:
         print(m.parser.config)
     elif args.connections_only:
