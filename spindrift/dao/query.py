@@ -9,6 +9,9 @@ class Query(object):
 
     def __init__(self, table_class):
         self._classes = [table_class]
+        self._count = [
+            len(table_class.FIELDS) + len(table_class.CALCULATED_FIELDS)
+        ]
         self._join = table_class.FULL_TABLE_NAME()
 
         self._columns = [
@@ -19,9 +22,6 @@ class Query(object):
             '%s AS %s' % (c, n)
             for n, c in table_class.CALCULATED_FIELDS.items()
         )
-
-        self._column_names = [f for f in table_class.FIELDS]
-        self._column_names.extend(table_class.CALCULATED_FIELDS.keys())
 
         self._where = None
         self._order = None
@@ -59,6 +59,7 @@ class Query(object):
         if not column1:
             column1 = '%s_id' % table2.TABLE
         self._classes.append(table1)
+        self._count.append(len(table1.FIELDS) + len(table1.CALCULATED_FIELDS))
         if outer:
             direction = 'LEFT' if outer is True else outer
             self._join += ' %s OUTER' % direction
@@ -78,9 +79,6 @@ class Query(object):
             '%s AS %s' % (c, n)
             for n, c in table1.CALCULATED_FIELDS.items()
         )
-
-        self._column_names.extend(table1.FIELDS)
-        self._column_names.extend(table1.CALCULATED_FIELDS.keys())
 
         return self
 
@@ -127,8 +125,7 @@ class Query(object):
             for rs in values:
                 tables = None
                 row = [t for t in zip(columns, rs)]
-                for c in self._classes:
-                    count = len(c.FIELDS) + len(c.CALCULATED_FIELDS)
+                for c, count in zip(self._classes, self._count):
                     val, row = row[:count], row[count:]
                     o = c(**dict(val))
                     if tables is None:
