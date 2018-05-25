@@ -27,11 +27,14 @@ class Task(object):
 
     @property
     def callback(self):
-        for cleanup in self._cleanup:
-            cleanup()
-        return self._callback
+        def cleanup_before_callback(rc, result):
+            for cleanup in self._cleanup[::-1]:
+                cleanup()
+            self._callback(rc, result)
+        return cleanup_before_callback
 
-    def call(self, fn, args=None, kwargs=None, on_success=None, on_none=None, on_error=None, on_timeout=None):
+    def call(self, fn, args=None, kwargs=None, on_success=None, on_none=None,
+             on_error=None, on_timeout=None):
         self.is_done = False
 
         def cb(rc, result):
@@ -89,7 +92,8 @@ def _callback(task, fn, result, on_success, on_none):
             return task.callback(1, 'exception during on_none: %s' % e)
     if on_success:
         try:
-            log.debug('task.callback, cid=%s, on_success fn=%s', task.cid, on_success)
+            log.debug('task.callback, cid=%s, on_success fn=%s', task.cid,
+                      on_success)
             return on_success(task, result)
         except Exception as e:
             return task.callback(1, 'exception during on_success: %s' % e)
@@ -100,13 +104,15 @@ def _callback(task, fn, result, on_success, on_none):
 def _callback_error(task, fn, result, on_error, on_timeout):
     if on_timeout and result == 'timeout':
         try:
-            log.debug('task.callback, cid=%s, on_timeout fn=%s', task.cid, on_timeout)
+            log.debug('task.callback, cid=%s, on_timeout fn=%s', task.cid,
+                      on_timeout)
             return on_timeout(task, result)
         except Exception as e:
             return task.callback(1, 'exception during on_timeout: %s' % e)
     if on_error:
         try:
-            log.debug('task.callback, cid=%s, on_error fn=%s', task.cid, on_error)
+            log.debug('task.callback, cid=%s, on_error fn=%s', task.cid,
+                      on_error)
             return on_error(task, result)
         except Exception as e:
             return task.callback(1, 'exception during on_error: %s' % e)
