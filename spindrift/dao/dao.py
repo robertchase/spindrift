@@ -207,8 +207,9 @@ class DAO(object):
 
         def on_count(rc, result):
             if rc == 0:
-                result = result[0][0]
-            callback(rc, result)
+                columns, values = result
+                value = values[0][0]
+            callback(rc, value)
 
         cursor.execute(on_count, query, arg)
 
