@@ -59,14 +59,17 @@ class MysqlHandler(network.Handler):
 class MysqlContext(object):
 
     def __init__(self, user=None, pswd=None, db=None, host=None, port=3306,
-                 column=False,          # return result as tuple of (column_names, result_set)
+                 column=False,          # return result as tuple of
+                                        #   (column_names, result_sets)
                  table=False,           # prepend 'table_name.' to column_names
-                 fsm_trace=None,        # trace FSM events fn(state, event, is_default, is_internal)
+                 fsm_trace=None,        # trace FSM events fn(state, event,
+                                        #   is_default, is_internal)
                  sql_trace=None,        # trace sql commands fn(stmt)
                  autocommit=False,      # autocommit (True/False)
                  isolation=None,        # session isolation level
                  handler=MysqlHandler,  # handler for mysql connection
-                 commit=True,           # if False, don't COMMIT (useful for testing)
+                 commit=True,           # if False, don't COMMIT (useful for
+                                        #   testing)
                  ):
         self.user = user
         self.pswd = '' if pswd is None else pswd
