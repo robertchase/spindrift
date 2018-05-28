@@ -9,8 +9,8 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def content_to_json(*fields, **kwargs):
-    """rest_handler decorator that converts handler.html_content to handler.json
+def content_to_args(*fields, **kwargs):
+    """rest_handler decorator that converts handler.html_content to (kw)args
 
     The content must be a valid json document or a valid URI query string (as
     produced by a POSTed HTML form). If the content starts with a '[' or '{',
@@ -42,7 +42,7 @@ def content_to_json(*fields, **kwargs):
     """
     as_args = kwargs.setdefault('as_args', True)
 
-    def __content_to_json(rest_handler):
+    def __content_to_args(rest_handler):
         def inner(request, *args):
             kwargs = dict()
             try:
@@ -75,4 +75,20 @@ def content_to_json(*fields, **kwargs):
                 return request.respond(400, msg)
             return rest_handler(request, *args, **kwargs)
         return inner
-    return __content_to_json
+    return __content_to_args
+
+
+def coerce(*types):
+    def __coerce(rest_handler):
+        def inner(request, *args):
+            new_args = []
+            try:
+                for coercer, value in zip(types, args):
+                    new_args.append(coercer(value))
+            except Exception as e:
+                msg = 'Unable to coerce: {}'.format(e)
+                log.warning('Argument error, cid=%s: %s', request.id, msg)
+                return request.respond(400, msg)
+            return rest_handler(request, *new_args)
+        return inner
+    return __coerce
