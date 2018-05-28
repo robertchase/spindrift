@@ -69,15 +69,13 @@ def inspect_parameters(fn, kwargs):
     task = False
     cursor = False
 
-    # get a list of function parameters
-    sig = inspect.signature(fn).parameters
+    parameters = inspect.signature(fn).parameters
+    parameter_names = [p.name for p in parameters.values()]
 
-    # is the first parameter named 'task'
-    if [p for p in sig.values()][0].name == 'task':
+    if len(parameter_names) and parameter_names[0] == 'task':
         task = True
     else:
-        # is 'cursor' one of the parameters (and not already a kwarg)
-        if 'cursor' in sig and 'cursor' not in kwargs:
+        if 'cursor' in parameters and 'cursor' not in kwargs:
             cursor = True
 
     return task, cursor
