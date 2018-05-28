@@ -121,7 +121,11 @@ class Parser(object):
     def parse(cls, micro='micro'):
         parser = cls()
         for fname, num, parser.event, parser.line in load(micro):
-            parser.args, parser.kwargs = to_args(parser.line)
+            try:
+                parser.args, parser.kwargs = to_args(parser.line)
+            except Exception:
+                parser.args = parser.line.split()
+                parser.kwargs = {}
             try:
                 if not parser.fsm.handle(parser.event.lower()):
                     raise UnexpectedDirective(parser.event, fname, num)
