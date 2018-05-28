@@ -1,0 +1,3 @@
+SERVER echo 12345
+  ROUTE /echo
+    POST tutorial.echo.echo

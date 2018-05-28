@@ -1,0 +1,8 @@
+SERVER tasks 12345
+  ROUTE /tasks$
+    GET example.tut_task_1.list
+    POST example.tut_task_1.add
+  ROUTE /tasks/(\d*)$
+    GET example.tut_task_1.get
+    PUT example.tut_task_1.update
+    DELETE example.tut_task_1.delete
