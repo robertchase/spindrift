@@ -12,7 +12,7 @@ def echo(request):
 ```
 This function, found in `tutorial/echo.py`, is a `REST`
 handler that takes a
-[spindrift.rest.request.Request](doc/REQUEST.md)
+[spindrift.rest.request.Request](REQUEST.md)
 object as its only argument, and returns the content found in the request.
 
 ```
@@ -22,7 +22,7 @@ SERVER echo 12345
 ```
 
 This
-[micro](doc/MICRO.md)
+[micro](MICRO.md)
 file, in `tutorial/echo.micro`, describes
 a `REST` server listening on port `12345` for incoming `HTTP` requests
 that have `/echo` as a resource. `POST` requests are routed to
