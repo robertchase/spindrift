@@ -1,26 +1,43 @@
-ID = {'id': 0}
-TASKS = {}
+class Tasks(dict):
+
+    def __init__(self):
+        self.id = 0
+
+    @property
+    def next_id(self):
+        self.id += 1
+        return self.id
 
 
-def create(request):
-    desc = request.json['description']
-    ID['id'] = ID['id'] + 1
-    id = str(ID['id'])
-    TASKS[id] = desc
-    request.respond(201, {'id': id, 'description': desc})
+TASKS = Tasks()
+
+
+def format(id=0):
+    if id:
+        return dict(id=id, description=TASKS[id])
+    return [format(key) for key in TASKS.keys()]
+
+
+def create(request, description):
+    id = TASKS.next_id
+    TASKS[id] = description
+    return format(id)
 
 
 def read(request, id=None):
-    if id is None:
-        return TASKS
-    return {'id': id, 'description': TASKS[id]}
+    if id and id not in TASKS:
+        return 404
+    return format(id)
 
 
-def update(request, id):
-    desc = request.json['description']
-    TASKS[id] = desc
-    return {'id': id, 'description': desc}
+def update(request, id, description):
+    if id not in TASKS:
+        return 404
+    TASKS[id] = description
+    return format(id)
 
 
 def delete(request, id):
-    del TASKS[id]
+    if id not in TASKS:
+        return 404
+    del TASKS[d]

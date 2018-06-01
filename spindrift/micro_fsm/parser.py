@@ -90,10 +90,12 @@ class Parser(object):
 
     def __init__(self):
         self.fsm = create_machine(
+            add_arg=self.act_add_arg,
             add_config=self.act_add_config,
             add_connection=self.act_add_connection,
             add_database=self.act_add_database,
             add_header=self.act_add_header,
+            add_json=self.act_add_json,
             add_log=self.act_add_log,
             add_method=self.act_add_method,
             add_optional=self.act_add_optional,
@@ -170,6 +172,9 @@ class Parser(object):
             value=self.log.is_stdout,
             validator=config_file.validate_bool
         )
+
+    def act_add_arg(self):
+        pass
 
     def act_add_log(self):
         self.log = Log(*self.args, **self.kwargs)
@@ -284,6 +289,9 @@ class Parser(object):
 
     def act_add_method(self):
         self.server.add_method(Method(self.event, *self.args, **self.kwargs))
+
+    def act_add_json(self):
+        pass
 
     def act_add_required(self):
         self.connection.add_required(*self.args, **self.kwargs)
@@ -436,6 +444,8 @@ class Route(object):
     def __init__(self, pattern):
         self.pattern = pattern
         self.methods = {}
+        self.args = []
+        self.kwargs = {}
 
     def __repr__(self):
         return 'Route[pattern=%s, methods=%s]' % (self.pattern, self.methods)
@@ -446,9 +456,33 @@ class Method(object):
     def __init__(self, method, path):
         self.method = method.lower()
         self.path = path
+        self.args = []
+        self.kwargs = {}
 
     def __repr__(self):
         return 'Method[method=%s, path=%s]' % (self.method, self.path)
+
+
+class Arg(object):
+
+    def __init__(self, type, name=None, default=None):
+        self.type = type
+        self.name = name
+        self.default = default
+
+    def __repr__(self):
+        return 'Arg[method=%s, path=%s]' % (self.method, self.path)
+
+
+class Kwarg(object):
+
+    def __init__(self, name, type=None, default=None):
+        self.name = name
+        self.type = type
+        self.default = default
+
+    def __repr__(self):
+        return 'Arg[method=%s, path=%s]' % (self.method, self.path)
 
 
 class Database(object):

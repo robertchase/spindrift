@@ -11,6 +11,39 @@ import logging
 log = logging.getLogger(__name__)
 
 
+class RESTArg(object):
+
+    def __init__(self, name, type, default):
+        self.name = name
+        self.type = type
+        self.default = default
+
+
+class RESTMethod(object):
+
+    def __init__(self, handler, args, content):
+        self.handler = handler
+        self.args = args
+        self.content = content
+
+    def coerce(self, list_data, json_data):
+        args = []
+        kwargs = {}
+
+        if len(self.args):
+            if len(self.args) != len(list_data):
+                raise Exception('argument count mismatch')
+            for coercer, arg in zip(self.args, list_data):
+                args.append(coercer.type(arg))
+
+        for coercer in self.content:
+            kwargs[coercer.name] = json_data.get(
+                coercer.name, coercer.default
+            )
+
+        return args, kwargs
+
+
 class RESTMapper(object):
     ''' A Mapper between REST resource+method and a rest handler function
     '''

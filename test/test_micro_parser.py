@@ -72,6 +72,7 @@ def test_duplicate_port(par):
         par.parse([
             'server test 12345',
             'route abc',
+            'get a.b.c',
             'server test 12345'
         ])
 
