@@ -5,9 +5,9 @@
 #
 # SERVER :name :port
 #   ROUTE :pattern
-#     ARG :type -name=None default=None
+#     ARG :type
 #     GET|PUT|POST|DELETE :path
-#       JSON :name -type=None default=None
+#       CONTENT :name -type=str required=true
 # CONNECTION :name :url -is_json=True -is_verbose=True -timeout=5.0 -handler=None -setup=None -wrapper=None -setup=None
 #   HEADER :key -default=None -config=None -code=None
 #   RESOURCE :name :path -method=GET -is_json=None -is_verbose=None -timeout=None -handler=None -setup=None -wrapper=None -setup=None
@@ -86,8 +86,8 @@ STATE route
 
 STATE method
     ENTER add_method
-    EVENT json
-        ACTION add_json
+    EVENT content
+        ACTION add_content
     EVENT get
         ACTION add_method
     EVENT post

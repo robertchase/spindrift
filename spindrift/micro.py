@@ -14,7 +14,7 @@ from spindrift.dao.db import DB
 from spindrift.micro_fsm.handler import InboundHandler, MysqlHandler
 from spindrift.micro_fsm.parser import Parser as parser
 from spindrift.rest.handler import RESTContext
-from spindrift.rest.mapper import RESTMapper
+from spindrift.rest.mapper import RESTMapper, RESTMethod
 from spindrift.network import Network
 from spindrift.timer import Timer
 
@@ -232,9 +232,14 @@ def setup_servers(config, micro, servers):
         )
         for route in server.routes:
             methods = {}
-            for method, path in route.methods.items():
-                methods[method] = _import(path)
-            mapper.add(route.pattern, **methods)
+            for name, defn in route.methods.items():
+                method = RESTMethod(defn.path)
+                for arg in route.args:
+                    method.add_arg(arg.type)
+                for arg in defn.content:
+                    method.add_content(arg.name, arg.type, arg.is_required)
+                methods[name] = method
+            mapper.add(route.pattern, methods)
         try:
             handler = _import(conf.handler, is_module=True)
         except KeyError:

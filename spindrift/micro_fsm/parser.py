@@ -6,7 +6,6 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 import ergaleia.config as config_file
 from ergaleia.to_args import to_args
 from ergaleia.normalize_path import normalize_path
-from spindrift.micro_fsm.connect import parse_substitution
 from spindrift.micro_fsm.fsm_micro import create as create_machine
 
 import logging
@@ -53,8 +52,6 @@ class UnexpectedDirective(ParserException):
 
 def load(micro='micro', files=None, lines=None):
 
-    path = micro
-
     if files is None:
         files = []
     if lines is None:
@@ -93,9 +90,9 @@ class Parser(object):
             add_arg=self.act_add_arg,
             add_config=self.act_add_config,
             add_connection=self.act_add_connection,
+            add_content=self.act_add_content,
             add_database=self.act_add_database,
             add_header=self.act_add_header,
-            add_json=self.act_add_json,
             add_log=self.act_add_log,
             add_method=self.act_add_method,
             add_optional=self.act_add_optional,
@@ -174,7 +171,7 @@ class Parser(object):
         )
 
     def act_add_arg(self):
-        pass
+        self.server.add_arg(Arg(*self.args, **self.kwargs))
 
     def act_add_log(self):
         self.log = Log(*self.args, **self.kwargs)
@@ -211,6 +208,9 @@ class Parser(object):
                 value=connection.timeout,
                 validator=float
             )
+
+    def act_add_content(self):
+        self.server.add_content(Arg(*self.args, **self.kwargs))
 
     def act_add_database(self):
         if self.database:
@@ -289,9 +289,6 @@ class Parser(object):
 
     def act_add_method(self):
         self.server.add_method(Method(self.event, *self.args, **self.kwargs))
-
-    def act_add_json(self):
-        pass
 
     def act_add_required(self):
         self.connection.add_required(*self.args, **self.kwargs)
@@ -424,19 +421,19 @@ class Server(object):
         self.port = int(port)
         self.routes = []
 
-    def __repr__(self):
-        return 'Server[name=%s, port=%s, routes=%s]' % (
-            self.name,
-            self.port,
-            self.routes,
-        )
-
     def add_route(self, route):
         self.routes.append(route)
         self.route = route
 
     def add_method(self, method):
-        self.route.methods[method.method] = method.path
+        self.route.methods[method.method] = method
+
+    def add_arg(self, arg):
+        self.route.args.append(arg)
+
+    def add_content(self, arg):
+        method = self.route.methods[-1]
+        method.content.append(arg)
 
 
 class Route(object):
@@ -445,10 +442,6 @@ class Route(object):
         self.pattern = pattern
         self.methods = {}
         self.args = []
-        self.kwargs = {}
-
-    def __repr__(self):
-        return 'Route[pattern=%s, methods=%s]' % (self.pattern, self.methods)
 
 
 class Method(object):
@@ -456,33 +449,15 @@ class Method(object):
     def __init__(self, method, path):
         self.method = method.lower()
         self.path = path
-        self.args = []
-        self.kwargs = {}
-
-    def __repr__(self):
-        return 'Method[method=%s, path=%s]' % (self.method, self.path)
+        self.content = []
 
 
 class Arg(object):
 
-    def __init__(self, type, name=None, default=None):
+    def __init__(self, type, name=None, is_required=True):
         self.type = type
         self.name = name
-        self.default = default
-
-    def __repr__(self):
-        return 'Arg[method=%s, path=%s]' % (self.method, self.path)
-
-
-class Kwarg(object):
-
-    def __init__(self, name, type=None, default=None):
-        self.name = name
-        self.type = type
-        self.default = default
-
-    def __repr__(self):
-        return 'Arg[method=%s, path=%s]' % (self.method, self.path)
+        self.is_required = is_required
 
 
 class Database(object):
@@ -542,12 +517,6 @@ class Connection(object):
         self.resources = {}
         self._resource = None
 
-    def __repr__(self):
-        return '\n'.join([
-            'connection.{}.{}'.format(self.name, r)
-            for r in self.resources.values()
-        ])
-
     def __contains__(self, name):
         return name in self.resources
 
@@ -576,11 +545,6 @@ class Header(object):
         self.default = default
         self.config = config
         self.code = code
-
-    def __repr__(self):
-        return 'Header[key=%s, dft=%s, cfg=%s, cod=%s]' % (
-            self.key, self.default, self.config, self.code
-        )
 
 
 class Resource(object):
@@ -619,12 +583,6 @@ class Resource(object):
         self.optional = {}
         self.headers = {}
 
-    def __repr__(self):
-        param = parse_substitution(self.path)
-        param.extend([p for p in self.required])
-        param.extend(['\n    %s' % o for o in self.optional.values()])
-        return 'resource.%s(%s\n)' % (self.name, ', '.join(param))
-
     def add_required(self, parameter_name):
         self.required.append(parameter_name)
 
@@ -644,9 +602,3 @@ class Optional(object):
         self.default = default
         self.config = config
         self.validate = validate
-
-    def __repr__(self):
-        opt = '%s=%s' % (self.name, self.default)
-        if self.config:
-            opt += ', config=%s' % (self.config)
-        return opt

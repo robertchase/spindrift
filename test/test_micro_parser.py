@@ -113,8 +113,8 @@ def test_method(par):
     t = r[0]
     assert t.pattern == 'abc'
     assert len(t.methods) == 2
-    assert t.methods['get'] == 'a.b.c'
-    assert t.methods['put'] == 'd.e.f'
+    assert t.methods['get'].path == 'a.b.c'
+    assert t.methods['put'].path == 'd.e.f'
     t = r[1]
     assert t.pattern == 'xyz'
     assert len(t.methods) == 3
