@@ -210,7 +210,7 @@ class Parser(object):
             )
 
     def act_add_content(self):
-        self.server.add_content(Arg(*self.args, **self.kwargs))
+        self.server.add_content(Content(*self.args, **self.kwargs))
 
     def act_add_database(self):
         if self.database:
@@ -426,13 +426,14 @@ class Server(object):
         self.route = route
 
     def add_method(self, method):
+        self.route.method = method
         self.route.methods[method.method] = method
 
     def add_arg(self, arg):
         self.route.args.append(arg)
 
     def add_content(self, arg):
-        method = self.route.methods[-1]
+        method = self.route.method
         method.content.append(arg)
 
 
@@ -440,6 +441,7 @@ class Route(object):
 
     def __init__(self, pattern):
         self.pattern = pattern
+        self.method = None
         self.methods = {}
         self.args = []
 
@@ -454,7 +456,13 @@ class Method(object):
 
 class Arg(object):
 
-    def __init__(self, type, name=None, is_required=True):
+    def __init__(self, type):
+        self.type = type
+
+
+class Content(object):
+
+    def __init__(self, name, type=None, is_required=True):
         self.type = type
         self.name = name
         self.is_required = is_required

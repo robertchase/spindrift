@@ -7,6 +7,7 @@ from collections import namedtuple
 from itertools import zip_longest
 import re
 
+from ergaleia.config import _VALIDATE_MAP
 from ergaleia.import_by_path import import_by_path
 
 import logging
@@ -25,8 +26,13 @@ class RESTArg(object):
 
     def __init__(self, type, name=None, is_required=True):
         self.name = name
-        self.type = import_by_path(type)
         self.is_required = is_required
+
+        if type in _VALIDATE_MAP:
+            type = _VALIDATE_MAP[type]
+        else:
+            type = import_by_path(type)
+        self.type = type
 
 
 class RESTMethod(object):
