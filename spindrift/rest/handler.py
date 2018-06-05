@@ -59,7 +59,7 @@ class RESTHandler(http.HTTPHandler):
             except Exception as e:
                 log.warning(e)
                 return request.respond(400)
-            result = self._rest_handler(request, *self._groups)
+            result = self._rest_handler(request, *args, **kwargs)
             if request.is_done:  # already responded
                 pass
             elif request.is_delayed:

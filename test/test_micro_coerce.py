@@ -14,14 +14,12 @@ def to_date(ts):
 
 
 def coerce(request, id, when):
-    return (id, when)
+    return when.isoformat()
 
 
 def on_coerce(rc, result):
     assert rc == 0
-    a, b = result
-    assert a == ID
-    assert b == DATE
+    assert result == DATE.isoformat()
 
 
 def test_ping():
@@ -32,13 +30,14 @@ def test_ping():
         '    GET test.test_micro_coerce.coerce',
         '        CONTENT when type=test.test_micro_coerce.to_date',
         'CONNECTION coerce http://localhost:{}'.format(PORT),
-        '  RESOURCE get {}/{} is_json=False'.format(PATH, ID),
+        '  RESOURCE get %s/{id} is_json=False' % PATH,
         '    REQUIRED when',
     ]
     micro = Micro().load(s).setup()
 
     c = micro.connection.coerce.resource.get(
         on_coerce,
+        ID,
         DATE.isoformat(),
     )
     while c.is_open:
