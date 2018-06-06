@@ -117,8 +117,9 @@ class Parser(object):
         self.servers = {}
 
     @classmethod
-    def parse(cls, micro='micro'):
+    def parse(cls, micro='micro', trace=None):
         parser = cls()
+        parser.fsm.trace = trace
         for fname, num, parser.event, parser.line in load(micro):
             try:
                 parser.args, parser.kwargs = to_args(parser.line)

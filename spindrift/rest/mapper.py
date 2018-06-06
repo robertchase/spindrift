@@ -19,7 +19,9 @@ class ArgumentCountMismatch(Exception):
 
 
 class MissingRequiredContent(Exception):
-    pass
+    def __init__(self, key):
+        msg = "missing required content: '{}'".format(key)
+        super(MissingRequiredContent, self).__init__(msg)
 
 
 class RESTArg(object):

@@ -5,8 +5,8 @@ SERVER tasks 12345
     POST tutorial.task.create
         CONTENT description
 
-  ROUTE /tasks/(\d*)$
-    ARG int
+  ROUTE /tasks/(?P<id>\d*)$
+    TYPE int
     GET tutorial.task.read
     PUT tutorial.task.update
         CONTENT description

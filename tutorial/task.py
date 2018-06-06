@@ -40,4 +40,4 @@ def update(request, id, description):
 def delete(request, id):
     if id not in TASKS:
         return 404
-    del TASKS[d]
+    del TASKS[id]
