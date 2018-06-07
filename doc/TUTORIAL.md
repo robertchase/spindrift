@@ -57,7 +57,7 @@ and, in the server terminal, log messages record the processing of the `REST` ca
 The log messages show data about the peer, the `REST` resource, the response code and
 statistics about handler duration, bytes received (rx) and bytes transmitted (tx).
 
-## A full REST service
+## CRUD service
 
 Now, we look at a set of CRUD calls.
 
@@ -136,8 +136,12 @@ Some of the routes include a task id, depicted by the regex `(\d*)`,
 matching a numeric value.
 The parenthesis around the value define an argument to be passed
 to the `REST` handler function.
-The `read`, `update` and `delete` functions each accept another
-argument in addition to `request`.
+The `?P<id>` part of the regex allows the group to have a name,
+which is used here to note the purpose of the field.
+The `create` and `update` functions each accept another
+argument in addition to `request`, whose value is pulled from
+the `query string`, `form` or `json` body of the request. The
+`CONTENT` directive specifies this additional parameter.
 
 Let's see this in action.
 (`PYTHONPATH` includes `spindrift`, `ergaleia` and `fsm`).
@@ -153,33 +157,33 @@ In another terminal, use `curl` to talk to the server.
 ```
 > # list all tasks
 > curl localhost:12345/tasks
-{}
+[]
 
 > # add a task
 > curl localhost:12345/tasks -d description='make coffee'
-{"id": "1", "description": "make coffee"}
+{"id": 1, "description": "make coffee"}
 
 > # list all tasks again
 > curl localhost:12345/tasks
-{"1": "make coffee"}
+[{"id": 1: "description": "make coffee"}]
 
 > # add another task
 > curl localhost:12345/tasks -d description='buy donut'
 {"id": "2", "description": "buy donut"}
 
 > curl localhost:12345/tasks
-{"1": "make coffee", "2": "buy coffee"}
+[{"id": 1: "description": "make coffee", "id": 2: "description": "buy coffee"}]
 
 > # change a task
 > curl localhost:12345/tasks/1 -XPUT -d description='buy coffee'
-{"id": "2", "description": "buy coffee"}
+{"id": 1, "description": "buy coffee"}
 
 > curl localhost:12345/tasks
-{"1": "buy coffee", "2": "buy donut"}
+[{"id": 1: "description": "buy coffee", "id": 2: "description": "buy donut"}]
 
 > # delete a task
 > curl localhost:12345/tasks/2 -XDELETE
 
 > curl localhost:12345/tasks
-{"1": "buy coffee"}
+[{"id": 1: "description": "buy coffee"}]
 ```

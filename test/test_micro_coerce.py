@@ -25,8 +25,8 @@ def on_coerce(rc, result):
 def test_ping():
     s = [
         'SERVER coerce {}'.format(PORT),
-        '  ROUTE {}/(\d+)$'.format(PATH),
-        '    ARG int',
+        '  ROUTE {}/(?P<id>\d+)$'.format(PATH),
+        '    TYPE int',
         '    GET test.test_micro_coerce.coerce',
         '        CONTENT when type=test.test_micro_coerce.to_date',
         'CONNECTION coerce http://localhost:{}'.format(PORT),
