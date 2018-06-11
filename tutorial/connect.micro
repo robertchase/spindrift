@@ -1,0 +1,8 @@
+SERVER placeholder 12345
+
+  ROUTE /placeholder/(?P<id>\d+)
+    TYPE int
+    GET tutorial.connect.read
+
+CONNECTION posts https://jsonplaceholder.typicode.com
+  RESOURCE read /posts/{id}

@@ -132,12 +132,16 @@ This `micro` file,
 in `tutorial/task.micro`, describes
 a `REST` service listening on port `12345` for incoming `HTTP` requests
 that have `/tasks` as a resource.
+
 Some of the routes include a task id, depicted by the regex `(\d*)`,
 matching a numeric value.
 The parenthesis around the value define an argument to be passed
 to the `REST` handler function.
 The `?P<id>` part of the regex allows the group to have a name,
 which is used here to note the purpose of the field.
+the `TYPE int` directive causes the `id` group value to be
+coerced to an `int`.
+
 The `create` and `update` functions each accept another
 argument in addition to `request`, whose value is pulled from
 the `query string`, `form` or `json` body of the request. The
