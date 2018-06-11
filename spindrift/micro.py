@@ -234,15 +234,20 @@ def setup_servers(config, micro, servers):
             conf.http_max_line_length,
             conf.http_max_header_count,
         )
-        for route in server.routes:
+        for routenum, route in enumerate(server.routes, start=1):
             methods = {}
             for name, defn in route.methods.items():
-                method = RESTMethod(defn.path)
-                for arg in route.args:
-                    method.add_arg(arg.type)
-                for arg in defn.content:
-                    method.add_content(arg.name, arg.type, arg.is_required)
-                methods[name] = method
+                try:
+                    method = RESTMethod(defn.path)
+                    for arg in route.args:
+                        method.add_arg(arg.type)
+                    for arg in defn.content:
+                        method.add_content(arg.name, arg.type, arg.is_required)
+                    methods[name] = method
+                except Exception as e:
+                    raise Exception(
+                        'error setting up server: {}'.format(str(e))
+                    )
             mapper.add(route.pattern, methods)
         try:
             handler = _import(conf.handler, is_module=True)

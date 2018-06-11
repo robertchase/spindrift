@@ -33,7 +33,12 @@ class RESTArg(object):
         if type in _VALIDATE_MAP:
             type = _VALIDATE_MAP[type]
         else:
-            type = import_by_path(type)
+            try:
+                type = import_by_path(type)
+            except Exception:
+                raise Exception(
+                    "unable to import validation function '{}'".format(type)
+                )
         self.type = type
 
 
