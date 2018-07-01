@@ -466,7 +466,7 @@ class Content(object):
     def __init__(self, name, type=None, is_required=True):
         self.type = type
         self.name = name
-        self.is_required = is_required
+        self.is_required = config_file.validate_bool(is_required)
 
 
 class Database(object):
