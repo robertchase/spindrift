@@ -121,7 +121,8 @@ class HTTPHandler(Handler):
         data = data.encode('utf-8')
         super(HTTPHandler, self).send(data)
 
-    def send(self, method='GET', host=None, resource='/', headers=None, content='', close=False, compress=False):
+    def http_send(self, method='GET', host=None, resource='/', headers=None,
+                  content='', close=False, compress=False):
 
         self._http_method = method
 

@@ -277,7 +277,7 @@ class ConnectHandler(HTTPHandler):
         '''
         self.timer.re_start()
         context = self.context
-        self.send(
+        self.http_send(
             method=context.method,
             host=context.host,
             resource=context.path,
