@@ -145,5 +145,4 @@ class RESTHandler(http.HTTPHandler):
 
     def on_send_complete(self):
         super(RESTHandler, self).on_send_complete()
-        if not self.is_closed:
-            self.unquiesce()  # start looking for another request in the pipeline
+        self.unquiesce()  # start looking for another request in the pipeline

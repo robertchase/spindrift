@@ -364,7 +364,7 @@ class Handler(object):
 
     def unquiesce(self):
         ''' start receiving data again '''
-        if self._is_quiesced:
+        if self.is_open and self._is_quiesced:
             self._is_quiesced = False
             if self._mask == 0:
                 self._register(selectors.EVENT_READ, self._do_read)

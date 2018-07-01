@@ -29,6 +29,7 @@ class RESTRequest(object):
             http_resource
             http_query_string
             http_query
+            http_message
 
         It also provides access to a unique connection id, and a json property
         which is the content as a json document, the query string, or the
@@ -52,7 +53,7 @@ class RESTRequest(object):
         if name in (
             'id', 'http_headers', 'http_content', 'http_method',
             'http_multipart', 'http_resource', 'http_query_string',
-            'http_query'
+            'http_query', 'http_message',
         ):
             return getattr(self.handler, name)
         super(RESTRequest, self).__getattribute__(name)
