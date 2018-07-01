@@ -22,6 +22,7 @@ class HTTPHandler(Handler):
 
                 available variables (on_http_data)
 
+                    http_message - entire message
                     http_headers - dictionary of headers
                     http_content - content
                     t_http_data - time when http data fully arrives
@@ -55,6 +56,12 @@ class HTTPHandler(Handler):
         self.http_max_header_count = 100
 
         self._http_close_on_complete = False
+
+    @property
+    def http_message(self):
+        if len(self._data) == 0:
+            return self._http_message
+        return self._http_message[:-len(self._data)]
 
     @property
     def charset(self):
@@ -167,7 +174,7 @@ class HTTPHandler(Handler):
 
     def _setup(self):
         self.http_headers = {}
-        self.http_message = bytearray()
+        self._http_message = bytearray()
         self.http_content = bytearray()
         self.http_status_code = None
         self.http_status_message = None
@@ -183,7 +190,7 @@ class HTTPHandler(Handler):
         pass
 
     def on_data(self, data):
-        self.http_message.extend(data)
+        self._http_message.extend(data)
         self._data.extend(data)
         while self.is_open and self._state():
             pass
