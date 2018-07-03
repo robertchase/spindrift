@@ -69,8 +69,8 @@ def connect(
 
         Notes:
 
-            1. If body is a dict and method is GET, then the contents of dict are added
-               to the query string and body is cleared.
+            1. If body is a dict and method is GET, then the contents of dict
+               are added to the query string and body is cleared.
     """
     if query is not None:
         if isinstance(query, dict):
@@ -164,6 +164,9 @@ class ConnectHandler(HTTPHandler):
         self.is_timeout = False
         self.setup()
         self.check_kwargs()
+        self.timer = self.context.timer.add(
+            self.on_timeout, self.context.timeout * 1000
+        ).start()
         self.after_init()
 
     def check_kwargs(self):
@@ -227,9 +230,6 @@ class ConnectHandler(HTTPHandler):
 
         if context.body is None:
             context.body = ''
-        self.timer = self.context.timer.add(
-            self.on_timeout, self.context.timeout * 1000
-        ).start()
 
     def done(self, result, rc=0):
         if self.is_done:
