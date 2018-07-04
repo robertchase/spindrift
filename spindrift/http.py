@@ -17,36 +17,36 @@ log = logging.getLogger(__name__)
 class HTTPHandler(Handler):
 
     def _on_init(self):
-        '''
-            Handler for an HTTP connection.
+        """Handler for an HTTP connection.
 
-                available variables (on_http_data)
+               available variables (on_http_data)
 
-                    http_message - entire message
-                    http_headers - dictionary of headers
-                    http_content - content
-                    t_http_data - time when http data fully arrives
+                   http_message - entire message
+                   http_headers - dictionary of headers
+                   http_content - content
+                   t_http_data - time when http data fully arrives
 
-                    client:
-                        http_status_code - integer code from status line
-                        http_status_message - message from status line
+                   client:
+                       http_status_code - integer code from status line
+                       http_status_message - message from status line
 
-                    server:
-                        http_method - method from status line
-                        http_multipart - list of HTTPPart objects
-                        http_resource - resource from status line
-                        http_query_string - unmodified query string
-                        http_query - dict of query string
-                        charset - encoding from Content-Type header or None
+                   server:
+                       http_method - method from status line
+                       http_multipart - list of HTTPPart objects
+                       http_resource - resource from status line
+                       http_query_string - unmodified query string
+                       http_query - dict of query string
+                       charset - encoding from Content-Type header or None
 
-                        if charset:
-                            http_content: decoded http_content
+                       if charset:
+                           http_content: decoded http_content
 
-                on_http_status(self, method, resource) - (server) when status line is available
-                on_http_send(self, headers, content) - useful for debugging
-                on_http_data(self) - when data is available
-                on_http_error(self, message)
-        '''
+               on_http_status(self, method, resource) - (server) when status
+                   line is available
+               on_http_send(self, headers, content) - useful for debugging
+               on_http_data(self) - when data is available
+               on_http_error(self, message)
+        """
         self.t_http_data = 0
         self._data = bytearray()
         self._setup()
@@ -67,7 +67,8 @@ class HTTPHandler(Handler):
     def charset(self):
         h = self.http_headers.get('content-type')
         if h:
-            charset = [c.split('=')[1].strip() for c in h.split(';') if 'charset' in c]
+            charset = [c.split('=')[1].strip() for c in h.split(';')
+                       if 'charset' in c]
             if len(charset):
                 return charset[0]
         return 'utf-8'
@@ -86,19 +87,26 @@ class HTTPHandler(Handler):
 
     def _multipart(self):
         cache = self._data
-        self.http_headers['content-type'], boundary = self.http_headers['content-type'].split('; boundary=')
-        for self._data in [p[2:] for p in self.http_content.split('--' + boundary)][1:-1]:  # split, remove \r\n and ignore first & last; stuff into _data for _line
+        self.http_headers['content-type'], boundary = \
+            self.http_headers['content-type'].split('; boundary=')
+        # split, remove \r\n and ignore first & last; stuff into _data for _line
+        for self._data in [p[2:] for p in
+                           self.http_content.split('--' + boundary)][1:-1]:
             headers = dict(l.split(': ', 1) for l in iter(self._line, ''))
             if 'Content-Disposition' in headers:
-                headers['Content-Disposition'], rem = headers['Content-Disposition'].split('; ', 1)
-                disposition = dict(part.split('=', 1) for part in rem.split('; '))
-            self.http_multipart.append(HTTPPart(headers, disposition, self._data))
+                headers['Content-Disposition'], rem = \
+                    headers['Content-Disposition'].split('; ', 1)
+                disposition = dict(part.split('=', 1) for part in
+                                   rem.split('; '))
+            self.http_multipart.append(HTTPPart(headers, disposition,
+                                                self._data))
         self._data = cache
 
     def _on_http_data(self):
         if self.http_headers.get('content-encoding') == 'gzip':
             try:
-                self.http_content = gzip.GzipFile(fileobj=StringIO(self.http_content)).read()
+                self.http_content = gzip.GzipFile(
+                    fileobj=StringIO(self.http_content)).read()
             except Exception:
                 return self._on_http_error('Malformed gzip data')
         if self.http_headers.get('content-type', '').startswith('multipart'):
@@ -143,11 +151,13 @@ class HTTPHandler(Handler):
             headers['Accept-Encoding'] = 'gzip'
 
         if 'host' not in (k.lower() for k in headers):
-            host = host if host else self.host if self.host else '%s:%s' % self.peer_address
+            host = host if host else self.host if self.host else \
+                '%s:%s' % self.peer_address
             headers['Host'] = host
 
         headers = '%s %s HTTP/1.1\r\n%s\r\n\r\n' % (
-            method, resource, '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()])
+            method, resource, '\r\n'.join(['%s: %s' % (k, v) for k, v in
+                                           headers.items()])
         )
 
         self._send(headers, content)
@@ -206,14 +216,16 @@ class HTTPHandler(Handler):
         test = self._data.split(b'\n', 1)
         if len(test) == 1:
             if len(self._data) > self.http_max_line_length:
-                return self._on_http_error('too much data without a line termination (a)')
+                return self._on_http_error(
+                    'too much data without a line termination (a)')
             return None
         line, self._data = test
         if len(line):
             if line.endswith(b'\r'):
                 line = line[:-1]
             if len(line) > self.http_max_line_length:
-                return self._on_http_error('too much data without a line termination (b)')
+                return self._on_http_error(
+                    'too much data without a line termination (b)')
         return line.decode('utf-8')
 
     def _status(self):
@@ -230,13 +242,15 @@ class HTTPHandler(Handler):
                 self.http_status_code = toks[1]
                 self.http_status_code = int(self.http_status_code)
             except ValueError:
-                return self._on_http_error('Invalid status line: non-integer status code')
+                return self._on_http_error(
+                    'Invalid status line: non-integer status code')
             self.http_status_message = ' '.join(toks[2:])
 
         # GET /resource HTTP/1.[0|1]
         else:
             if toks[2] not in ('HTTP/1.0', 'HTTP/1.1'):
-                return self._on_http_error('Invalid status line: not HTTP/1.0 or HTTP/1.1')
+                return self._on_http_error(
+                    'Invalid status line: not HTTP/1.0 or HTTP/1.1')
             self.http_method = toks[0]
 
             res = urlparse.urlparse(toks[1])
@@ -275,13 +289,15 @@ class HTTPHandler(Handler):
 
     def _end_header(self):
 
-        if getattr(self, '_http_method', None) == 'HEAD':  # this gets set if the send method is called
+        # this gets set if the send method is called
+        if getattr(self, '_http_method', None) == 'HEAD':
             self._length = 0
             self._state = self._content
 
         elif 'transfer-encoding' in self.http_headers:
             if self.http_headers['transfer-encoding'] != 'chunked':
-                return self._on_http_error('Unsupported Transfer-Encoding value')
+                return self._on_http_error(
+                    'Unsupported Transfer-Encoding value')
             self._state = self._chunked_length
 
         else:
@@ -295,10 +311,11 @@ class HTTPHandler(Handler):
                         self.http_send_server(
                             code=413, message='Request Entity Too Large'
                         )
-                        return self._on_http_error('Content-Length exceeds maximum length')
+                        return self._on_http_error(
+                            'Content-Length exceeds maximum length')
                 self._state = self._content
             else:
-                if self.is_inbound:  # server can't wait for close (might need to respond)
+                if self.is_inbound:  # server can't wait for close
                     self._length = 0
                     self._state = self._content
                 else:
@@ -333,7 +350,8 @@ class HTTPHandler(Handler):
         try:
             self._length = int(line, 16)
         except ValueError:
-            return self._on_http_error('Invalid transfer-encoding chunk length: %s' % line)
+            return self._on_http_error(
+                'Invalid transfer-encoding chunk length: %s' % line)
         if self._length == 0:
             self._state = self._footer
             return True
@@ -342,7 +360,8 @@ class HTTPHandler(Handler):
                 self.http_send_server(
                     code=413, message='Request Entity Too Large'
                 )
-                return self._on_http_error('Content-Length exceeds maximum length')
+                return self._on_http_error(
+                    'Content-Length exceeds maximum length')
         self._state = self._chunked_content
         return True
 
@@ -386,12 +405,12 @@ class HTTPHandler(Handler):
 class HTTPPart(object):
 
     def __init__(self, headers, disposition, content):
-        '''
-            Container for one part of a multipart message.
+        """Container for one part of a multipart message.
 
-            The disposition is a dict with the k:v pairs from the 'Content-Disposition'
-            header, where things like filename are stored.
-        '''
+           The disposition is a dict with the k:v pairs from the
+           'Content-Disposition' header, where things like filename are
+           stored.
+        """
         self.headers = headers
         self.disposition = disposition
         self.content = content
