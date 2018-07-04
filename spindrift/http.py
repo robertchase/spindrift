@@ -319,8 +319,8 @@ class HTTPHandler(Handler):
     def _content(self):
         if len(self._data) >= self._length:
             self.http_content = self._data[:self._length]
-            self._on_http_data()
             self._data = self._data[self._length:]
+            self._on_http_data()
             self._setup()
             return True
         return False
