@@ -130,7 +130,7 @@ class RESTHandler(http.HTTPHandler):
         if headers:
             args['headers'] = headers
         self.on_rest_send(code, message, content, headers)
-        self.send_server(**args)
+        self.http_send_server(**args)
 
     def on_rest_send(self, code, message, content, headers):
         pass

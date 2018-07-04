@@ -152,7 +152,8 @@ class HTTPHandler(Handler):
 
         self._send(headers, content)
 
-    def send_server(self, content='', code=200, message='OK', headers=None, close=False):
+    def http_send_server(self, content='', code=200, message='OK',
+                         headers=None, close=False):
 
         if close or self.http_headers.get('connection') == 'close':
             self._http_close_on_complete = True
@@ -291,7 +292,9 @@ class HTTPHandler(Handler):
                     return self._on_http_error('Invalid content length')
                 if self.http_max_content_length:
                     if self._length > self.http_max_content_length:
-                        self.send_server(code=413, message='Request Entity Too Large')
+                        self.http_send_server(
+                            code=413, message='Request Entity Too Large'
+                        )
                         return self._on_http_error('Content-Length exceeds maximum length')
                 self._state = self._content
             else:
@@ -336,7 +339,9 @@ class HTTPHandler(Handler):
             return True
         if self.http_max_content_length:
             if (len(self._data) + self._length) > self.http_max_content_length:
-                self.send_server(code=413, message='Request Entity Too Large')
+                self.http_send_server(
+                    code=413, message='Request Entity Too Large'
+                )
                 return self._on_http_error('Content-Length exceeds maximum length')
         self._state = self._chunked_content
         return True
