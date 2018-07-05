@@ -161,6 +161,7 @@ class ConnectHandler(HTTPHandler):
 
     def on_init(self):
         self.is_done = False
+        self.is_success = False
         self.is_timeout = False
         self.setup()
         self.check_kwargs()
@@ -235,6 +236,8 @@ class ConnectHandler(HTTPHandler):
         if self.is_done:
             return
         self.is_done = True
+        if not self.is_success:
+            rc = 1
         self.timer.cancel()
         self.context.callback(rc, result)
         self.close('transaction complete')
@@ -337,6 +340,7 @@ class ConnectHandler(HTTPHandler):
                 result = self.context.wrapper(result)
             except Exception as e:
                 self.done(str(e), 1)
+        self.is_success = True
 
         self.done(result)
 
