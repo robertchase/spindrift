@@ -54,9 +54,7 @@ class RESTHandler(http.HTTPHandler):
             result = self._rest_handler(request, *self._groups)
             if request.is_done:  # already responded
                 pass
-            elif request.is_delayed:
-                request.handler.quiesce()  # stop reading in case another request is pipelined (see on_send_complete)
-            else:
+            elif not request.is_delayed:
                 request.respond(result)
         except Exception:
             content = self.on_rest_exception(*sys.exc_info())
@@ -134,7 +132,3 @@ class RESTHandler(http.HTTPHandler):
 
     def on_rest_send(self, code, message, content, headers):
         pass
-
-    def on_send_complete(self):
-        super(RESTHandler, self).on_send_complete()
-        self.unquiesce()  # start looking for another request in the pipeline

@@ -117,11 +117,17 @@ class HTTPHandler(Handler):
         if self.charset:
             self.http_content = self.http_content.decode(self.charset)
         self.t_http_data = time.perf_counter()
+        if self.is_inbound:
+            self._state = self._init
+            self.quiesce()
         self.on_http_data()
 
     def on_send_complete(self):
         if self._http_close_on_complete:
             self.close()
+        elif self.is_inbound:
+            self.unquiesce()
+            self.on_data(b'')
 
     def _send(self, headers, content):
         self.on_http_send(headers, content)
@@ -198,13 +204,13 @@ class HTTPHandler(Handler):
         self._state = self._status
 
     def on_http_headers(self):
-        ''' a chance to terminate connection if headers don't check out '''
+        """a chance to terminate connection if headers don't check out"""
         pass
 
     def on_data(self, data):
         self._http_message.extend(data)
         self._data.extend(data)
-        while self.is_open and self._state():
+        while self.is_open and not self._is_quiesced and self._state():
             pass
 
     def _on_http_error(self, message):
@@ -227,6 +233,10 @@ class HTTPHandler(Handler):
                 return self._on_http_error(
                     'too much data without a line termination (b)')
         return line.decode('utf-8')
+
+    def _init(self):
+        self._setup()
+        return True
 
     def _status(self):
         line = self._line()
@@ -338,7 +348,6 @@ class HTTPHandler(Handler):
             self.http_content = self._data[:self._length]
             self._data = self._data[self._length:]
             self._on_http_data()
-            self._setup()
             return True
         return False
 
@@ -389,7 +398,6 @@ class HTTPHandler(Handler):
 
         if len(line) == 0:
             self._on_http_data()
-            self._setup()
             return True
 
         test = line.split(':', 1)
