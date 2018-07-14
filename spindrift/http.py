@@ -214,8 +214,8 @@ class HTTPHandler(Handler):
             pass
 
     def _on_http_error(self, message):
+        self._http_close_on_complete = True
         self.on_http_error(message)
-        self.close('http error')
         return False
 
     def _line(self):
@@ -328,6 +328,7 @@ class HTTPHandler(Handler):
                 if self.is_inbound:  # server can't wait for close
                     self._length = 0
                     self._state = self._content
+                    self._http_close_on_complete = True
                 else:
                     self._on_close = self._on_end_at_close
                     self._state = self._nop

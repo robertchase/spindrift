@@ -116,8 +116,8 @@ class InboundHandler(RESTHandler):
             self.http_resource
         )
 
-    def on_http_error(self):
-        log.warning('http error cid=%d: %s', self.id, self.error)
+    def on_http_error(self, message):
+        log.warning('http error cid=%d: %s', self.id, message)
 
     def on_rest_exception(self, exception_type, value, trace):
         log.exception('exception encountered:')

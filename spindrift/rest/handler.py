@@ -43,8 +43,7 @@ class RESTHandler(http.HTTPHandler):
             self._groups = groups
         else:
             self.on_rest_no_match()
-            self._rest_send(404, 'Not Found')
-            self.close('matching rest handler not found')
+            self._rest_send(404, 'Not Found', close=True)
 
     def on_http_data(self):
         try:
@@ -61,8 +60,7 @@ class RESTHandler(http.HTTPHandler):
             kwargs = dict(code=501, message='Internal Server Error')
             if content:
                 kwargs['content'] = str(content)
-            self._rest_send(**kwargs)
-            self.close('exception encountered')
+            self._rest_send(**kwargs, close=True)
 
     def on_rest_data(self, groups):
         ''' called before rest_handler execution '''

@@ -347,8 +347,8 @@ class ConnectHandler(HTTPHandler):
     def on_fail(self):
         self.done(self.close_reason, 1)
 
-    def on_http_error(self):
-        self.done('http error', 1)
+    def on_http_error(self, message):
+        self.done(message, 0)
 
     def on_timeout(self):
         self.is_timeout = True
