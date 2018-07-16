@@ -344,8 +344,8 @@ class ConnectHandler(HTTPHandler):
 
         self.done(result)
 
-    def on_fail(self):
-        self.done(self.close_reason, 1)
+    def on_fail(self, message):
+        self.done(message, 1)
 
     def on_http_error(self, message):
         self.done(message, 0)
