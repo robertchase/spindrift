@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name='spindrift',
-    version='1.0.1',
+    version='1.0.2',
     packages=find_packages(exclude=['tests']),
     description='A rest framework',
     long_description="""
