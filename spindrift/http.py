@@ -3,10 +3,10 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-from io import StringIO
-import time
-import urllib.parse as urlparse
 import gzip
+import time
+import json
+import urllib.parse as urlparse
 
 from spindrift.network import Handler
 
@@ -71,7 +71,7 @@ class HTTPHandler(Handler):
                        if 'charset' in c]
             if len(charset):
                 return charset[0]
-        return 'utf-8'
+        return None
 
     def on_http_send(self, headers, content):
         pass
@@ -105,8 +105,7 @@ class HTTPHandler(Handler):
     def _on_http_data(self):
         if self.http_headers.get('content-encoding') == 'gzip':
             try:
-                self.http_content = gzip.GzipFile(
-                    fileobj=StringIO(self.http_content)).read()
+                self.http_content = gzip.decompress(self.http_content)
             except Exception:
                 return self._on_http_error('Malformed gzip data')
         if self.http_headers.get('content-type', '').startswith('multipart'):
@@ -132,63 +131,81 @@ class HTTPHandler(Handler):
     def _send(self, headers, content):
         self.on_http_send(headers, content)
         data = headers + content if content else headers
-        data = data.encode('utf-8')
         super(HTTPHandler, self).send(data)
 
-    def http_send(self, method='GET', host=None, resource='/', headers=None,
-                  content='', close=False, compress=False):
-
-        self._http_method = method
+    def _http_send(self, status, headers, content,
+                   content_type='text/html', charset='utf-8',
+                   close=False, compress=False, host=None):
 
         if not headers:
             headers = {}
 
-        if 'Date' not in headers:
+        header_keys = [k.lower() for k in headers.keys()]
+
+        if 'content-type' not in header_keys:
+            if content_type == 'json':
+                content = json.dumps(content)
+                content_type = 'application/json'
+            elif content_type == 'form':
+                content_type = 'application/x-www-form-urlencoded'
+                content = urlparse.urlencode(content)
+            headers['Content-Type'] = content_type
+
+        if charset:
+            content = content.encode(charset)
+            headers['Content-Type'] += '; charset=%s' % charset
+
+        if compress:
+            if self.is_outbound:
+                headers['Accept-Encoding'] = 'gzip'
+            else:
+                content = gzip.compress(content)
+                headers['Content-Encoding'] = 'gzip'
+
+        if 'date' not in header_keys:
             headers['Date'] = time.strftime(
                 "%a, %d %b %Y %H:%M:%S %Z", time.localtime())
 
-        if 'Content-Length' not in headers:
+        if 'content-length' not in header_keys:
             headers['Content-Length'] = len(content)
 
         if close:
             headers['Connection'] = 'close'
 
-        if compress:
-            headers['Accept-Encoding'] = 'gzip'
-
-        if 'host' not in (k.lower() for k in headers):
+        if self.is_outbound and 'host' not in (k.lower() for k in headers):
             host = host if host else self.host if self.host else \
                 '%s:%s' % self.peer_address
             headers['Host'] = host
 
-        headers = '%s %s HTTP/1.1\r\n%s\r\n\r\n' % (
-            method, resource, '\r\n'.join(['%s: %s' % (k, v) for k, v in
-                                           headers.items()])
+        headers = '%s\n\r%s\n\r\n' % (
+            status,
+            '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()]),
         )
+        headers = headers.encode('ascii')
 
         self._send(headers, content)
 
+    def http_send(self, method='GET', host=None, resource='/', headers=None,
+                  content='', content_type='text/html', charset='utf-8',
+                  close=False, compress=False):
+
+        self._http_method = method
+        status = '%s %s HTTP/1.1' % (method, resource)
+
+        self._http_send(status, headers, content, content_type, charset,
+                        close, compress, host)
+
     def http_send_server(self, content='', code=200, message='OK',
-                         headers=None, close=False):
+                         content_type='text/html', charset='utf-8',
+                         headers=None, compress=False, close=False):
 
         if close or self.http_headers.get('connection') == 'close':
             self._http_close_on_complete = True
 
-        if headers is None:
-            headers = {}
+        status = 'HTTP/1.1 %d %s' % (code, message)
 
-        if 'Date' not in headers:
-            headers['Date'] = time.strftime(
-                "%a, %d %b %Y %H:%M:%S %Z", time.localtime())
-
-        if 'Content-Length' not in headers:
-            headers['Content-Length'] = len(content)
-
-        headers = 'HTTP/1.1 %d %s\r\n%s\r\n\r\n' % (
-            code, message,
-            '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()]))
-
-        self._send(headers, content)
+        self._http_send(status, headers, content, content_type, charset,
+                        close, compress)
 
     def _setup(self):
         self.http_headers = {}

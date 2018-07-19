@@ -1,3 +1,4 @@
+import gzip
 import pytest
 
 import spindrift.http as http
@@ -71,3 +72,37 @@ def test_pipeline(ctx, net):
         net.service()
     assert ctx.server == 3
     assert ctx.client == 3
+
+
+def test_gzip():
+    handler = http.HTTPHandler(0, network.Network())
+    data = b'This Is A Test'
+    zdata = gzip.compress(data)
+    handler.http_content = zdata
+
+    handler._on_http_data()
+    assert handler.http_content == zdata
+
+    handler.http_headers = {'content-encoding': 'gzip'}
+    handler._on_http_data()
+    assert handler.http_content == data
+
+    handler.http_headers['content-type'] = 'text/html; charset=utf-8'
+    handler.http_content = zdata
+    handler._on_http_data()
+    assert handler.http_content == data.decode()
+
+
+def test_server_compress():
+    data = 'This is a TeSt'
+
+    class _handler(http.HTTPHandler):
+        def _send(self, headers, content):
+            print(headers)
+            self.tested = True
+            assert content == gzip.compress(data.encode())
+
+    handler = _handler(0, network.Network())
+    handler.tested = False
+    handler.http_send_server(data, compress=True)
+    assert handler.tested

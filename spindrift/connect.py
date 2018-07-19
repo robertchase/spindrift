@@ -145,8 +145,8 @@ class ConnectContext(object):
         self.host = host
         self.headers = headers
         self.body = body
+        self.content_type = 'form' if is_form else 'text/html'
         self.is_json = is_json
-        self.is_form = is_form
         self.timeout = timeout
         self.wrapper = wrapper
         self.evaluate = evaluate
@@ -187,30 +187,14 @@ class ConnectHandler(HTTPHandler):
                 self.context.url,
             )
 
-    def _form(self, context):
-        if context.is_form:
-            if not context.headers:
-                context.headers = {}
-            context.headers['Content-Type'] = \
-                'application/x-www-form-urlencoded'
-
     def setup(self):
         context = self.context
 
-        self._form(context)
-
-        if isinstance(context.body, dict):
-            context_type = None
-            if context.headers:
-                context_type = context.headers.get('Content-Type')
-
-            if context_type == 'application/x-www-form-urlencoded':
-                context.body = urllib.urlencode(context.body)
-            elif context.method == 'GET':
-                query = urllib.parse_qs(context.query)
-                query.update(context.body)
-                context.query = urllib.urlencode(context.body)
-                context.body = None
+        if isinstance(context.body, dict) and context.method == 'GET':
+            query = urllib.parse_qs(context.query)
+            query.update(context.body)
+            context.query = urllib.urlencode(context.body)
+            context.body = None
 
         if context.path == '':
             context.path = '/'
@@ -220,14 +204,11 @@ class ConnectHandler(HTTPHandler):
 
         if isinstance(context.body, (dict, list, tuple, float, bool, int)):
             try:
-                context.body = json.dumps(context.body)
+                json.dumps(context.body)
             except Exception:
                 context.body = str(context.body)
             else:
-                if context.headers is None:
-                    context.headers = {}
-                context.headers['Content-Type'] = \
-                    'application/json; charset=utf-8'
+                context.content_type = 'json'
 
         if context.body is None:
             context.body = ''
@@ -286,6 +267,7 @@ class ConnectHandler(HTTPHandler):
             resource=context.path,
             headers=context.headers,
             content=context.body,
+            content_type=context.content_type,
             close=True,
         )
 
