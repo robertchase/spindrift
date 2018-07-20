@@ -187,17 +187,17 @@ class HTTPHandler(Handler):
 
     def http_send(self, method='GET', host=None, resource='/', headers=None,
                   content='', content_type='text/html', charset='utf-8',
-                  close=False, compress=False):
+                  close=False, gzip=False):
 
         self._http_method = method
         status = '%s %s HTTP/1.1' % (method, resource)
 
         self._http_send(status, headers, content, content_type, charset,
-                        close, compress, host)
+                        close, gzip, host)
 
     def http_send_server(self, content='', code=200, message='OK',
                          content_type='text/html', charset='utf-8',
-                         headers=None, compress=False, close=False):
+                         headers=None, gzip=False, close=False):
 
         if close or self.http_headers.get('connection') == 'close':
             self._http_close_on_complete = True
@@ -205,7 +205,7 @@ class HTTPHandler(Handler):
         status = 'HTTP/1.1 %d %s' % (code, message)
 
         self._http_send(status, headers, content, content_type, charset,
-                        close, compress)
+                        close, gzip)
 
     def _setup(self):
         self.http_headers = {}

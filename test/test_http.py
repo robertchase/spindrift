@@ -104,5 +104,5 @@ def test_server_compress():
 
     handler = _handler(0, network.Network())
     handler.tested = False
-    handler.http_send_server(data, compress=True)
+    handler.http_send_server(data, gzip=True)
     assert handler.tested
