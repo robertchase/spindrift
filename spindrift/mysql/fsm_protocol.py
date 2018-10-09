@@ -1,4 +1,6 @@
 from fsm.FSM import STATE, EVENT, FSM
+# pylint: skip-file
+# flake8: noqa
 # authenticate
 # autocommit
 # check_query_response
@@ -16,17 +18,17 @@ from fsm.FSM import STATE, EVENT, FSM
 # transaction_end
 def create(**actions):
   S_init=STATE('init')
-  S_greeting=STATE('greeting',enter=actions['parse_greeting'])
-  S_authenticate=STATE('authenticate',enter=actions['authenticate'])
-  S_autocommit=STATE('autocommit',enter=actions['autocommit'])
-  S_isolation=STATE('isolation',enter=actions['isolation'])
-  S_connected=STATE('connected',enter=actions['connected'])
-  S_transaction=STATE('transaction',enter=actions['transaction'])
-  S_query=STATE('query',enter=actions['init_query'])
+  S_greeting=STATE('greeting',on_enter=actions['parse_greeting'])
+  S_authenticate=STATE('authenticate',on_enter=actions['authenticate'])
+  S_autocommit=STATE('autocommit',on_enter=actions['autocommit'])
+  S_isolation=STATE('isolation',on_enter=actions['isolation'])
+  S_connected=STATE('connected',on_enter=actions['connected'])
+  S_transaction=STATE('transaction',on_enter=actions['transaction'])
+  S_query=STATE('query',on_enter=actions['init_query'])
   S_transaction_end=STATE('transaction_end')
   S_query_descriptors=STATE('query_descriptors')
   S_query_fields=STATE('query_fields')
-  S_close=STATE('close',enter=actions['close'])
+  S_close=STATE('close',on_enter=actions['close'])
   S_init.set_events([EVENT('packet',[], S_greeting),EVENT('query',[]),EVENT('close',[], S_close),])
   S_greeting.set_events([EVENT('done',[], S_authenticate),EVENT('query',[]),EVENT('close',[], S_close),])
   S_authenticate.set_events([EVENT('sent',[]),EVENT('ok',[actions['parse_auth_response']]),EVENT('done',[], S_autocommit),EVENT('query',[]),EVENT('close',[], S_close),])

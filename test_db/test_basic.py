@@ -1,23 +1,15 @@
-from spindrift.dao.dao import DAO
+from spindrift.database.dao import DAO
+from spindrift.database.field import Field, coerce_int
 
 
 class Parent(DAO):
 
-    TABLE = 'parent'
+    TABLENAME = 'parent'
 
-    FIELDS = (
-        'id',
-        'foo',
-        'bar',
-    )
-
-    DEFAULT = dict(
-        foo=10,
-    )
-
-    CALCULATED_FIELDS = dict(
-        foobar='foo+bar',
-    )
+    id = Field(coerce_int, is_primary=True)
+    foo = Field(coerce_int, default=10)
+    bar = Field(coerce_int, is_nullable=True)
+    foobar = Field(expression='foo+bar')
 
 
 def test_default():

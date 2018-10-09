@@ -7,7 +7,7 @@ from spindrift.database.field import Field, coerce_int
 @pytest.fixture
 def Structure():
     class Structure(DAO):
-        tablename = 'test'
+        TABLENAME = 'test'
         the_key = Field(coerce_int, is_primary=True)
         name = Field()
         age = Field(coerce_int, is_nullable=True)
@@ -43,15 +43,6 @@ def test_non_pk_fields(data):
     assert isinstance(db, list)
     assert len(db) == 2
     assert set(fld.name for fld in db) == set(('name', 'age'))
-
-
-def test_undefined_tablename():
-
-    class Foo(DAO):
-        bar = Field()
-
-    with pytest.raises(AttributeError):
-        Foo()
 
 
 def test_init(Structure):

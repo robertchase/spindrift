@@ -8,11 +8,10 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 class Query(object):
 
     def __init__(self, table):
-        table._bind()
         self._classes = [table]
         self._columns = table._db_fields
         self._count = [len(self._columns)]
-        self._join = '`' + table.tablename + '`'
+        self._join = '`' + table.TABLENAME + '`'
 
         self._where = None
         self._order = None
@@ -27,24 +26,23 @@ class Query(object):
 
     def by_pk(self):
         cls = self.classes[0]
-        self.where('`{}`.`{}`=%s'.format(cls._tablename, cls._pk))
+        self.where('`{}`.`{}`=%s'.format(cls.TABLENAME, cls._pk))
         return self
 
     def join(self, table, field, join_table, join_field, outer=None):
-        """add a table to the query (equi join)
+        """Add a table to the query (equi join)
 
             Parameters:
                 table      - DAO of the table to add to the query
                 field      - name of join field in table
                 join_table - DAO of table to join
-                join_field - name of join field in table2
+                join_field - name of join field in join_table
                 outer      - OUTER join indicator
                              LEFT or RIGHT
 
             Example:
                 User.query().join(Address, 'user_id', User, 'id')
         """
-        table._bind()
         self._classes.append(table)
         flds = table._db_fields
         self._columns.extend(flds)
@@ -60,9 +58,9 @@ class Query(object):
             raise ValueError("invalid outer join value: '{}'".format(outer))
 
         self._join += '{} `{}` ON `{}`.`{}` = `{}`.`{}`'.format(
-            join, table.tablename,
-            table.tablename, table._field(field).name,
-            join_table.tablename, join_table._field(join_field).name,
+            join, table.TABLENAME,
+            table.TABLENAME, table.field(field).name,
+            join_table.TABLENAME, join_table.field(join_field).name,
         )
 
         return self
@@ -79,7 +77,7 @@ class Query(object):
             if fld.expression:
                 flds.append(fld.expression)
             else:
-                table = fld._table.tablename
+                table = fld.dao.TABLENAME
                 flds.append('`' + table + '`.`' + fld.name + '`')
 
         stmt += ','.join(flds)

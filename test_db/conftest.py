@@ -1,6 +1,6 @@
 import pytest
 
-from spindrift.dao.db import DB
+from spindrift.database.db import DB
 from spindrift.network import Network
 
 
