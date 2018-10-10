@@ -6,17 +6,32 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 
 
 class Field():
-    def __init__(self, coerce=str, default=None, name=None, is_nullable=False,
-                 is_primary=False, expression=None, is_readonly=False,
-                 is_database=True):
-        self.coerce = coerce
+    def __init__(self, coerce=None, default=None, column=None,
+                 is_nullable=False, is_primary=False, expression=None,
+                 is_readonly=False, is_database=True):
+        self.coerce = coerce if coerce else lambda x: x
         self.default = default
-        self.name = name
+        self.alias = None
+        self.column = column
         self.is_nullable = is_nullable
         self.is_primary = is_primary
         self.expression = expression
         self.is_readonly = is_readonly or expression is not None
         self.is_database = is_database
+
+    @property
+    def name(self):
+        return self.alias if self.alias else self.column
+
+    @property
+    def as_select(self):
+        if self.expression:
+            return '{} AS {}'.format(self.expression, self.name)
+        table = self.dao.TABLENAME
+        if self.alias:
+            return '`{}`.`{}` AS `{}`'.format(table, self.column, self.alias)
+        else:
+            return '`{}`.`{}`'.format(table, self.column)
 
 
 def coerce_bool(value):

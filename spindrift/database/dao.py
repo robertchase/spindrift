@@ -6,6 +6,38 @@ from spindrift.database.field import Field
 from spindrift.database.query import Query
 
 
+class _fields:
+    def __init__(self, cls):
+        self.all_fields = {}
+        fields = []
+        for nam in dir(cls):
+            attr = getattr(cls, nam)
+            if not isinstance(attr, Field):
+                continue
+            if attr.column and attr.column != nam:
+                attr.alias = nam
+            elif attr.expression:
+                attr.alias = nam
+            else:
+                attr.column = nam
+            attr.dao = cls
+            fields.append(attr)
+            self.all_fields[attr.name] = attr
+            delattr(cls, nam)
+
+        pk = [fld.name for fld in fields if fld.is_primary]
+        if not pk:
+            self.pk = None
+        elif len(pk) != 1:
+            raise Exception('only one field can be is_primary=True')
+        else:
+            self.pk = pk[0]
+
+        self.db_read = [fld for fld in fields if fld.is_database]
+        self.db_insert = [fld for fld in self.db_read if not fld.expression]
+        self.db_update = [fld for fld in self.db_insert if not fld.is_primary]
+
+
 class DAO():
     """Database Access Object
     """
@@ -14,53 +46,66 @@ class DAO():
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        if not cls._fields:
+        if not hasattr(cls, '_fields'):
             if cls.TABLENAME is None:
                 raise AttributeError('TABLENAME not defined')
-            cls._bind()
-
-    _fields = {}
-    _db_fields = []
-    _pk = []
-    _non_pk_fields = []
-
-    @classmethod
-    def _bind(cls):
-        for nam in dir(cls):
-            fld = getattr(cls, nam)
-            if isinstance(fld, Field):
-                fld.dao = cls
-                if fld.name is None:
-                    fld.name = nam
-                cls._fields[nam] = fld
-                if fld.is_primary:
-                    cls._pk.append(fld)
-                if fld.is_database:
-                    cls._db_fields.append(fld)
-                    if not fld.is_primary:
-                        cls._non_pk_fields.append(fld)
-                delattr(cls, nam)
+            cls._fields = _fields(cls)
 
     def __init__(self, **kwargs):
-        for nam, fld in self._fields.items():
+        for nam, fld in self._all_fields.items():
             self.__dict__[nam] = fld.default
         for nam, val in kwargs.items():
             setattr(self, nam, val)
-        self._cache_fields()
+        self._cache_field_values()
 
-    @classmethod
-    def field(cls, name):
-        fld = cls._fields.get(name)
-        if not isinstance(fld, Field):
-            raise AttributeError("invalid Field name: '{}'".format(name))
-        return fld
+    def __getattr__(self, name):
+        if name == '_pk':
+            return self._fields.pk
+        elif name == '_all_fields':
+            return self._fields.all_fields
+        elif name.startswith('_db_'):
+            name = name[1:]
+            return getattr(self._fields, name)
 
     def __setattr__(self, name, value):
         if name.startswith('_'):
             super().__setattr__(name, value)
         else:
             fld = self.field(name)
-            self.__dict__[name] = fld.coerce(value)
+            super().__setattr__(name, fld.coerce(value))
+
+    def before_init(self, kwargs):
+        pass
+
+    def on_new(self, kwargs):
+        pass
+
+    def on_init(self, kwargs):
+        pass
+
+    def on_load(self, kwargs):
+        pass
+
+    def after_init(self):
+        pass
+
+    def before_save(self):
+        pass
+
+    def before_insert(self):
+        pass
+
+    def after_insert(self):
+        pass
+
+    def after_save(self):
+        pass
+
+    def field(self, name):
+        fld = self._all_fields.get(name)
+        if not isinstance(fld, Field):
+            raise AttributeError("invalid Field name: '{}'".format(name))
+        return fld
 
     @classmethod
     def load(cls, callback, key, cursor=None):
@@ -115,13 +160,13 @@ class DAO():
         self._save(on_save, insert, cursor, start_transaction, commit)
 
     def _save(self, callback, insert, cursor, start_transaction, commit):
-        pk = self._pk[0].name if self._pk else None
+        pk = self._pk
         if insert or pk is None or getattr(self, pk) is None:
             new = True
             self.before_insert()
-            fields = self._db_fields if insert else self._non_pk_fields
+            fields = self._db_insert if insert else self._db_update
             fields = [
-                f
+                f.name
                 for f in fields
                 if not (f.is_nullable and getattr(self, f.name) is None)
             ]
@@ -134,7 +179,7 @@ class DAO():
                 ','.join('%s' for n in range(len(fields))),
                 ')',
             ))
-            args = [getattr(self, f.name) for f in fields]
+            args = [getattr(self, f) for f in fields]
         else:
             if not pk:
                 raise Exception(
@@ -142,7 +187,7 @@ class DAO():
                 )
             new = False
             fields = self.fields_to_update
-            self._updated_fields = [] if fields is None else fields
+            self._db_update = [] if fields is None else fields
             if fields is None:
                 self._executed_stmt = self._stmt = None
                 callback(0, self)
@@ -154,7 +199,7 @@ class DAO():
                 ','.join(['`{}`=%s'.format(n) for n in fields]),
                 'WHERE id=%s',
             ))
-            args = [self.__dict__[f] for f in fields]
+            args = [getattr(self, f) for f in fields]
             args.append(self.id)
 
         def on_save(rc, result):
@@ -162,7 +207,7 @@ class DAO():
             if rc != 0:
                 callback(rc, result)
                 return
-            self._cache_fields()
+            self._cache_field_values()
             if new:
                 if not insert and pk:
                     setattr(self, pk, cursor.lastrowid)
@@ -181,16 +226,16 @@ class DAO():
             commit=commit,
         )
 
-    def _cache_fields(self):
-        self._orig = {fld.nam: getattr(self, fld.nam) for
-                      fld in self._non_pk_fields}
+    def _cache_field_values(self):
+        self._orig = {fld.name: getattr(self, fld.name) for
+                      fld in self._db_update}
 
     @property
     def _fields_to_update(self):
         f = [
-            fld.nam
-            for fld in self._non_pk_fields
-            if getattr(self, fld.nam) != self._orig.get(fld.nam)
+            fld.name
+            for fld in self._db_update
+            if getattr(self, fld.name) != self._orig.get(fld.name)
         ]
         if len(f) == 0:
             return None

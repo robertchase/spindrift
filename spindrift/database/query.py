@@ -9,7 +9,7 @@ class Query(object):
 
     def __init__(self, table):
         self._classes = [table]
-        self._columns = table._db_fields
+        self._columns = table._fields.db_read
         self._count = [len(self._columns)]
         self._join = '`' + table.TABLENAME + '`'
 
@@ -25,8 +25,8 @@ class Query(object):
         return self
 
     def by_pk(self):
-        cls = self.classes[0]
-        self.where('`{}`.`{}`=%s'.format(cls.TABLENAME, cls._pk))
+        cls = self._classes[0]
+        self.where('`{}`.`{}`=%s'.format(cls.TABLENAME, cls._fields.pk))
         return self
 
     def join(self, table, field, join_table, join_field, outer=None):
@@ -44,7 +44,7 @@ class Query(object):
                 User.query().join(Address, 'user_id', User, 'id')
         """
         self._classes.append(table)
-        flds = table._db_fields
+        flds = table._fields.db_read
         self._columns.extend(flds)
         self._count.append(len(flds))
 
@@ -70,17 +70,9 @@ class Query(object):
             raise Exception('one and limit parameters are mutually exclusive')
         if one:
             limit = 1
+
         stmt = 'SELECT '
-
-        flds = []
-        for fld in self._columns:
-            if fld.expression:
-                flds.append(fld.expression)
-            else:
-                table = fld.dao.TABLENAME
-                flds.append('`' + table + '`.`' + fld.name + '`')
-
-        stmt += ','.join(flds)
+        stmt += ','.join(fld.as_select for fld in self._columns)
         stmt += ' FROM ' + self._join
         if self._where:
             stmt += ' WHERE ' + self._where
