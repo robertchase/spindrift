@@ -59,20 +59,20 @@ class DAO():
         self._cache_field_values()
 
     def __getattr__(self, name):
-        if name == '_pk':
-            return self._fields.pk
-        elif name == '_all_fields':
-            return self._fields.all_fields
-        elif name.startswith('_db_'):
-            name = name[1:]
-            return getattr(self._fields, name)
+        if name[0] == '_':
+            return getattr(self._fields, name[1:])
+        raise AttributeError("DAO '{}' does not have attribute '{}'".format(
+            self.__class__.__name__, name
+        ))
 
     def __setattr__(self, name, value):
         if name.startswith('_'):
             super().__setattr__(name, value)
         else:
             fld = self.field(name)
-            super().__setattr__(name, fld.coerce(value))
+            if not (value is None and fld.is_nullable):
+                value = fld.coerce(value)
+            super().__setattr__(name, value)
 
     def before_init(self, kwargs):
         pass
@@ -102,49 +102,55 @@ class DAO():
         pass
 
     def field(self, name):
+        """Get a Field by DAO attribute name.
+        """
         fld = self._all_fields.get(name)
-        if not isinstance(fld, Field):
+        if not fld:
             raise AttributeError("invalid Field name: '{}'".format(name))
         return fld
 
     @classmethod
     def load(cls, callback, key, cursor=None):
+        """Load a database row by primary key.
+        """
         cls.query().by_pk().execute(
             callback, key, one=True, cursor=cursor
         )
 
     @classmethod
     def query(cls):
+        """Create a query object for this DAO.
+        """
         return Query(cls)
 
     def save(self, callback, insert=False, cursor=None,
              start_transaction=False, commit=False):
-        """ Save database object by id
+        """Save database object by id
 
-            Parameters:
-                callback - callback_fn(rc, result)
-                insert - bool
-                         if True save object with non-None id with INSERT
-                         instead of UPDATE
-                cursor - database cursor
-                start_transaction - start transaction before performing save
-                                    (See Note 3)
-                commit - commit transaction after performing save (See Note 3)
+           Parameters:
+               callback - callback_fn(rc, result)
+               insert - bool
+                        if True save object with non-None id with INSERT
+                        instead of UPDATE
+               cursor - database cursor
+               start_transaction - start transaction before performing save
+                                   (See Note 3)
+               commit - commit transaction after performing save (See Note 3)
 
-            Callback result:
-                self
+           Callback result:
+               self
 
-            Notes:
+           Notes:
 
-                1. Objects with a None value for _pk are INSERTED. After the
-                   INSERT, the _pk attribute is set to the auto-generated
-                   primary key.
+               1. Objects with a None value for _pk are INSERTED. After the
+                  INSERT, the _pk attribute is set to the auto-generated
+                  primary key.
 
-                2. On UPDATE, only changed fields, if any, are SET.
+               2. On UPDATE, only changed fields, if any, are SET.
 
-                3. If start_transaction and commit are not specified, then the
-                   save will be automatically wrapped in a transaction
-                   (start_transaction, save, commit).
+               3. If start_transaction and commit are not specified, then the
+                  save will be automatically wrapped in a transaction
+                  (start_transaction, save, commit).
         """
         if not cursor:
             raise Exception('cursor not specified')
@@ -158,6 +164,49 @@ class DAO():
                 callback(rc, result)
 
         self._save(on_save, insert, cursor, start_transaction, commit)
+
+    def insert(self, callback, id=None, cursor=None):
+        """Force insert of database object.
+
+           Insert usually happens automatically when id is NOT specified; this
+           is for the unusual case where you want to specifiy the primary key
+           yourself.
+
+           Parameters:
+               callback - callback_fn(rc, result)
+               id - primary key to use for insert (else 'id' attribute on self)
+               cursor - database cursor
+
+           Callback result:
+               self
+        """
+        if id is not None:
+            self.id = id
+        self.save(callback, insert=True, cursor=cursor)
+
+    def delete(self, callback, cursor=None):
+        """Delete matching row from database by primary key.
+
+           Parameters:
+               callback - callback_fn(rc, result)
+               cursor - database cursor
+
+           Callback result:
+              None
+        """
+        if not cursor:
+            raise Exception('cursor not specified')
+        pk = self._pk
+        query = 'DELETE from `{}` where `{}`=%s'.format(
+            self.TABLENAME, pk
+        )
+
+        def on_delete(rc, result):
+            if rc == 0:
+                result = None
+            callback(rc, result)
+
+        cursor.execute(on_delete, query, getattr(self, pk))
 
     def _save(self, callback, insert, cursor, start_transaction, commit):
         pk = self._pk
@@ -196,10 +245,10 @@ class DAO():
                 'UPDATE ',
                 '`' + self.TABLENAME + '`',
                 'SET',
-                ','.join(['`{}`=%s'.format(n) for n in fields]),
+                ','.join(['`{}`=%s'.format(fld.column) for fld in fields]),
                 'WHERE id=%s',
             ))
-            args = [getattr(self, f) for f in fields]
+            args = [getattr(self, fld.name) for fld in fields]
             args.append(self.id)
 
         def on_save(rc, result):
@@ -233,7 +282,7 @@ class DAO():
     @property
     def _fields_to_update(self):
         f = [
-            fld.name
+            fld
             for fld in self._db_update
             if getattr(self, fld.name) != self._orig.get(fld.name)
         ]

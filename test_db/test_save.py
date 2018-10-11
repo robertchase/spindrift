@@ -1,15 +1,14 @@
-from spindrift.dao.dao import DAO
+from spindrift.database.dao import DAO
+from spindrift.database.field import Field, coerce_int
 
 
 class Parent(DAO):
 
-    TABLE = 'parent'
+    TABLENAME = 'parent'
 
-    FIELDS = (
-        'id',
-        'foo',
-        'bar',
-    )
+    id = Field(coerce_int, is_primary=True)
+    foo = Field(coerce_int)
+    bar = Field(coerce_int, is_nullable=True)
 
 
 def test_save(db):

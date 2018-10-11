@@ -1,6 +1,7 @@
 import pytest
 
-from spindrift.dao.dao import DAO
+from spindrift.database.dao import DAO
+from spindrift.database.field import Field, Child, Foreign
 
 
 CHILD1 = 'fred'
@@ -9,40 +10,33 @@ CHILD2 = 'sally'
 
 class Parent(DAO):
 
-    TABLE = 'parent'
+    TABLENAME = 'parent'
 
-    FIELDS = (
-        'id',
-        'foo',
-        'bar',
-    )
+    id = Field(int, is_primary=True)
+    foo = Field(int, default=0)
+    bar = Field(int, is_nullable=True)
+    foo_bar = Field(expression='`{}`.foo + `{}`.bar'.format(
+        TABLENAME, TABLENAME
+    ))
 
-    DEFAULT = dict(
-        foo=0,
-    )
+    children = Child('class or path')
 
-    CALCULATED_FIELDS = dict(
-        foo_bar='%s.foo + %s.bar' % (TABLE, TABLE),
-    )
-
-    CHILDREN = dict(
-        child='test_db.test_query.Child',
-    )
+    # CHILDREN = dict(
+    #     child='test_db.test_query.Child',
+    # )
 
 
 class Child(DAO):
 
-    TABLE = 'child'
+    TABLENAME = 'child'
 
-    FIELDS = (
-        'id',
-        'parent_id',
-        'name',
-    )
+    id = Field(int, is_primary=True)
+    parent_id = Field(int, foreign=Foreign('class or path', 'name'))
+    name = Field(str)
 
-    FOREIGN = dict(
-        parent='test_db.test_query.Parent',
-    )
+    # FOREIGN = dict(
+    #     parent='test_db.test_query.Parent',
+    # )
 
     @classmethod
     def by_name(cls, callback, name, cursor):
@@ -67,6 +61,10 @@ def data(db):
 
     Parent(foo=1, bar=2).save(on_parent, cursor=db.cursor)
     db.run()
+
+
+def test_basic(data, db):
+    db.is_done = True
 
 
 def test_simple(data, db):
