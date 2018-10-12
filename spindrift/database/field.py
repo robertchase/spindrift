@@ -5,7 +5,7 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 
 
-class Field():
+class Field:
     def __init__(self, coerce=None, default=None, column=None,
                  is_nullable=False, is_primary=False, expression=None,
                  is_readonly=False, is_database=True):
@@ -32,6 +32,20 @@ class Field():
             return '`{}`.`{}` AS `{}`'.format(table, self.column, self.alias)
         else:
             return '`{}`.`{}`'.format(table, self.column)
+
+
+class Foreign:
+
+    def __init__(self, cls, field_name):
+        self.cls = cls
+        self.field_name = field_name
+
+    def __call__(self, instance):
+        def _foreign(callback, cursor):
+            return instance._pk, self.field_name
+            # self.cls.load(callback, getattr(self.instance, self._field_name),
+            #               cursor=cursor)
+        return _foreign
 
 
 def coerce_bool(value):

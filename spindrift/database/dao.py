@@ -2,7 +2,7 @@
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-from spindrift.database.field import Field
+from spindrift.database.field import Field, Foreign
 from spindrift.database.query import Query
 
 
@@ -37,6 +37,14 @@ class _fields:
         self.db_insert = [fld for fld in self.db_read if not fld.expression]
         self.db_update = [fld for fld in self.db_insert if not fld.is_primary]
 
+        self.foreign = {}
+        for nam in dir(cls):
+            attr = getattr(cls, nam)
+            if not isinstance(attr, Foreign):
+                continue
+            self.foreign[nam] = attr
+            delattr(cls, nam)
+
 
 class DAO():
     """Database Access Object
@@ -61,6 +69,9 @@ class DAO():
     def __getattr__(self, name):
         if name[0] == '_':
             return getattr(self._fields, name[1:])
+        foreign = self._fields.foreign.get(name)
+        if foreign:
+            return foreign(self)
         raise AttributeError("DAO '{}' does not have attribute '{}'".format(
             self.__class__.__name__, name
         ))
