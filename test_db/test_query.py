@@ -1,7 +1,7 @@
 import pytest
 
 from spindrift.database.dao import DAO
-from spindrift.database.field import Field, Child, Foreign
+from spindrift.database.field import Field, Children
 
 
 CHILD1 = 'fred'
@@ -19,11 +19,7 @@ class Parent(DAO):
         TABLENAME, TABLENAME
     ))
 
-    children = Child('class or path')
-
-    # CHILDREN = dict(
-    #     child='test_db.test_query.Child',
-    # )
+    kids = Children('test_db.test_query.Child')
 
 
 class Child(DAO):
@@ -31,12 +27,8 @@ class Child(DAO):
     TABLENAME = 'child'
 
     id = Field(int, is_primary=True)
-    parent_id = Field(int, foreign=Foreign('class or path', 'name'))
+    parent_id = Field(int, foreign='test_db.test_query.Parent')
     name = Field(str)
-
-    # FOREIGN = dict(
-    #     parent='test_db.test_query.Parent',
-    # )
 
     @classmethod
     def by_name(cls, callback, name, cursor):
@@ -61,10 +53,6 @@ def data(db):
 
     Parent(foo=1, bar=2).save(on_parent, cursor=db.cursor)
     db.run()
-
-
-def test_basic(data, db):
-    db.is_done = True
 
 
 def test_simple(data, db):
@@ -122,7 +110,7 @@ def test_join(data, db):
         assert set((CHILD1, CHILD2)) == names
         db.is_done = True
 
-    Parent.query().join(Child).execute(on_join, cursor=db.cursor)
+    Parent.query().join(Child, 'parent_id', Parent, 'id').execute(on_join, cursor=db.cursor)
     db.run()
 
 
@@ -137,7 +125,7 @@ def test_children(data, db):
 
     def on_parent(rc, result):
         assert rc == 0
-        result.children(on_children, Child, cursor=db.cursor)
+        result.kids(on_children, cursor=db.cursor)
 
     Parent.query().execute(on_parent, one=True, cursor=db.cursor)
     db.run()
@@ -152,7 +140,7 @@ def test_foreign(data, db):
 
     def on_child(rc, result):
         assert rc == 0
-        result.foreign(on_parent, Parent, cursor=db.cursor)
+        result.parent(on_parent, cursor=db.cursor)
 
     Child.query().execute(on_child, one=True, cursor=db.cursor)
     db.run()

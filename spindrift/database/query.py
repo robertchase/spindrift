@@ -9,7 +9,7 @@ class Query(object):
 
     def __init__(self, table):
         self._classes = [table]
-        self._columns = table._fields.db_read
+        self._columns = table._fields.db_read.copy()
         self._count = [len(self._columns)]
         self._join = '`' + table.TABLENAME + '`'
 
@@ -59,8 +59,8 @@ class Query(object):
 
         self._join += '{} `{}` ON `{}`.`{}` = `{}`.`{}`'.format(
             join, table.TABLENAME,
-            table.TABLENAME, table.field(field).name,
-            join_table.TABLENAME, join_table.field(join_field).name,
+            table.TABLENAME, table().field(field).name,
+            join_table.TABLENAME, join_table().field(join_field).name,
         )
 
         return self
@@ -116,7 +116,7 @@ class Query(object):
                         primary_table = o
                         o._tables = tables = {}
                     else:
-                        tables[c.TABLE] = o
+                        tables[c.TABLENAME] = o
                 rows.append(primary_table)
 
             if one:

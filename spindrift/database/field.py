@@ -3,12 +3,13 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
+from ergaleia.import_by_path import import_by_path
 
 
 class Field:
     def __init__(self, coerce=None, default=None, column=None,
                  is_nullable=False, is_primary=False, expression=None,
-                 is_readonly=False, is_database=True):
+                 is_readonly=False, is_database=True, foreign=None):
         self.coerce = coerce if coerce else lambda x: x
         self.default = default
         self.alias = None
@@ -18,6 +19,7 @@ class Field:
         self.expression = expression
         self.is_readonly = is_readonly or expression is not None
         self.is_database = is_database
+        self.foreign = foreign
 
     @property
     def name(self):
@@ -35,17 +37,49 @@ class Field:
 
 
 class Foreign:
+    def __init__(self, cls, attribute_name=None):
+        self._cls = cls
+        self.field_name = None
+        if attribute_name is None:
+            attribute_name = cls.split('.')[-1].lower()
+        self.attribute_name = attribute_name
 
-    def __init__(self, cls, field_name):
-        self.cls = cls
-        self.field_name = field_name
+    @property
+    def cls(self):
+        self._cls = import_by_path(self._cls)
+        return self._cls
 
     def __call__(self, instance):
         def _foreign(callback, cursor):
-            return instance._pk, self.field_name
-            # self.cls.load(callback, getattr(self.instance, self._field_name),
-            #               cursor=cursor)
+            id = getattr(instance, self.field_name)
+            self.cls.load(callback, id, cursor=cursor)
         return _foreign
+
+
+class Children:
+
+    def __init__(self, cls, field_name=None):
+        self._cls = cls
+        self.field_name = field_name
+
+    @property
+    def cls(self):
+        self._cls = import_by_path(self._cls)
+        return self._cls
+
+    def __call__(self, instance):
+        if self.field_name is None:
+            for nam, key in self.cls._fields.foreign.items():
+                if isinstance(instance, key.cls):
+                    self.field_name = key.field_name
+                    break
+            if self.field_name is None:
+                raise AttributeError('No foreign key match found')
+        def _children(callback, cursor):
+            self.cls.query().where('`{}`=%s'.format(self.field_name)).execute(
+                callback, getattr(instance, instance._pk), cursor=cursor
+            )
+        return _children
 
 
 def coerce_bool(value):
@@ -66,3 +100,53 @@ def coerce_int(value):
     if v_int == f_int:
         return v_int
     raise ValueError("invalid number for coerce_int(): '{}'".format(value))
+
+
+class FieldParser:
+    def __init__(self, cls):
+        self.all_fields = {}
+        fields = []
+        self.foreign = {}
+        self.lookup = {}
+        for nam in dir(cls):
+            attr = getattr(cls, nam)
+            if not isinstance(attr, Field):
+                continue
+            if attr.column and attr.column != nam:
+                attr.alias = nam
+            elif attr.expression:
+                attr.alias = nam
+            else:
+                attr.column = nam
+
+            foreign = getattr(attr, 'foreign')
+            if foreign:
+                if not isinstance(foreign, Foreign):
+                    foreign = Foreign(foreign)
+                foreign.field_name = nam
+                self.foreign[foreign.attribute_name] = foreign
+                self.lookup[foreign.attribute_name] = foreign
+
+            attr.dao = cls
+            fields.append(attr)
+            self.all_fields[attr.name] = attr
+            delattr(cls, nam)
+
+        pk = [fld.name for fld in fields if fld.is_primary]
+        if not pk:
+            self.pk = None
+        elif len(pk) != 1:
+            raise Exception('only one field can be is_primary=True')
+        else:
+            self.pk = pk[0]
+
+        self.db_read = [fld for fld in fields if fld.is_database]
+        self.db_insert = [fld for fld in self.db_read if not fld.expression]
+        self.db_update = [fld for fld in self.db_insert if not fld.is_primary]
+
+        for nam in dir(cls):
+            attr = getattr(cls, nam)
+            if not isinstance(attr, Children):
+                continue
+            self.lookup[nam] = attr
+            delattr(cls, nam)

@@ -2,48 +2,8 @@
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-from spindrift.database.field import Field, Foreign
+from spindrift.database.field import Field, FieldParser
 from spindrift.database.query import Query
-
-
-class _fields:
-    def __init__(self, cls):
-        self.all_fields = {}
-        fields = []
-        for nam in dir(cls):
-            attr = getattr(cls, nam)
-            if not isinstance(attr, Field):
-                continue
-            if attr.column and attr.column != nam:
-                attr.alias = nam
-            elif attr.expression:
-                attr.alias = nam
-            else:
-                attr.column = nam
-            attr.dao = cls
-            fields.append(attr)
-            self.all_fields[attr.name] = attr
-            delattr(cls, nam)
-
-        pk = [fld.name for fld in fields if fld.is_primary]
-        if not pk:
-            self.pk = None
-        elif len(pk) != 1:
-            raise Exception('only one field can be is_primary=True')
-        else:
-            self.pk = pk[0]
-
-        self.db_read = [fld for fld in fields if fld.is_database]
-        self.db_insert = [fld for fld in self.db_read if not fld.expression]
-        self.db_update = [fld for fld in self.db_insert if not fld.is_primary]
-
-        self.foreign = {}
-        for nam in dir(cls):
-            attr = getattr(cls, nam)
-            if not isinstance(attr, Foreign):
-                continue
-            self.foreign[nam] = attr
-            delattr(cls, nam)
 
 
 class DAO():
@@ -57,9 +17,10 @@ class DAO():
         if not hasattr(cls, '_fields'):
             if cls.TABLENAME is None:
                 raise AttributeError('TABLENAME not defined')
-            cls._fields = _fields(cls)
+            cls._fields = FieldParser(cls)
 
     def __init__(self, **kwargs):
+        kwargs = self._transform_foreign(kwargs)
         for nam, fld in self._all_fields.items():
             self.__dict__[nam] = fld.default
         for nam, val in kwargs.items():
@@ -69,9 +30,12 @@ class DAO():
     def __getattr__(self, name):
         if name[0] == '_':
             return getattr(self._fields, name[1:])
-        foreign = self._fields.foreign.get(name)
-        if foreign:
-            return foreign(self)
+        lookup = self._fields.lookup.get(name)
+        if lookup:
+            return lookup(self)
+        joined_table = getattr(self, '_tables', {}).get(name)
+        if joined_table:
+            return joined_table
         raise AttributeError("DAO '{}' does not have attribute '{}'".format(
             self.__class__.__name__, name
         ))
@@ -218,6 +182,65 @@ class DAO():
             callback(rc, result)
 
         cursor.execute(on_delete, query, getattr(self, pk))
+
+    @classmethod
+    def list(cls, callback, where=None, args=None, cursor=None):
+        """Query for a set of objects from underlying table
+
+           Parameters:
+               callback - callback_fn(rc, result)
+               where - optional where clause to restrict list
+               args - optional substitution values for where clause
+               cursor - database cursor
+
+           Callback result:
+               List of objects of type cls
+        """
+        args = tuple() if not args else args
+        cls.query().where(where).execute(
+            callback, arg=args, cursor=cursor
+        )
+
+    @classmethod
+    def count(cls, callback, where=None, arg=None, cursor=None):
+        """Count set of objects in underlying table
+
+           Parameters:
+               callback - callback_fn(rc, result)
+               where - optional where clause to restrict count
+               args - optional substitution values for where clause
+               cursor - database cursor
+
+           Callback result:
+              count (int)
+        """
+        if not cursor:
+            raise Exception('cursor not specified')
+        query = 'SELECT COUNT(*) FROM `{}`'.format(cls.TABLENAME)
+        if where:
+            query += ' WHERE ' + where
+
+        def on_count(rc, result):
+            if rc == 0:
+                columns, values = result
+                value = values[0][0]
+            callback(rc, value)
+
+        cursor.execute(on_count, query, arg)
+
+    # ---
+
+    def _transform_foreign(self, kwargs):
+        transform = {}
+        for nam, val in kwargs.items():
+            foreign = self._fields.foreign.get(nam)
+            if foreign:
+                fk = foreign.field_name
+                fv = getattr(val, val._pk)
+                transform[fk] = fv
+            else:
+                transform[nam] = val
+        return transform
 
     def _save(self, callback, insert, cursor, start_transaction, commit):
         pk = self._pk
