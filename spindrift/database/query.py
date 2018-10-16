@@ -53,14 +53,14 @@ class Query(object):
         elif outer.lower() == 'right':
             join = ' RIGHT OUTER JOIN '
         elif outer.lower() == 'left':
-            join = 'LEFT OUTER JOIN '
+            join = ' LEFT OUTER JOIN '
         else:
             raise ValueError("invalid outer join value: '{}'".format(outer))
 
-        self._join += '{} `{}` ON `{}`.`{}` = `{}`.`{}`'.format(
+        self._join += '{} `{}` ON {} = {}'.format(
             join, table.TABLENAME,
-            table.TABLENAME, table().field(field).name,
-            join_table.TABLENAME, join_table().field(join_field).name,
+            table.field(field).fullname,
+            join_table.field(join_field).fullname,
         )
 
         return self

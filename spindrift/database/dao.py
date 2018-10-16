@@ -2,7 +2,7 @@
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-from spindrift.database.field import Field, FieldParser
+from spindrift.database.field import FieldParser
 from spindrift.database.query import Query
 
 
@@ -49,37 +49,11 @@ class DAO():
                 value = fld.coerce(value)
             super().__setattr__(name, value)
 
-    def before_init(self, kwargs):
-        pass
-
-    def on_new(self, kwargs):
-        pass
-
-    def on_init(self, kwargs):
-        pass
-
-    def on_load(self, kwargs):
-        pass
-
-    def after_init(self):
-        pass
-
-    def before_save(self):
-        pass
-
-    def before_insert(self):
-        pass
-
-    def after_insert(self):
-        pass
-
-    def after_save(self):
-        pass
-
-    def field(self, name):
+    @classmethod
+    def field(cls, name):
         """Get a Field by DAO attribute name.
         """
-        fld = self._all_fields.get(name)
+        fld = cls._fields.all_fields.get(name)
         if not fld:
             raise AttributeError("invalid Field name: '{}'".format(name))
         return fld
@@ -129,16 +103,70 @@ class DAO():
         """
         if not cursor:
             raise Exception('cursor not specified')
-        self.before_save()
+
+        pk = self._pk
+        if insert or pk is None or getattr(self, pk) is None:
+            new = True
+            fields = self._db_insert if insert else self._db_update
+            fields = [
+                f.name
+                for f in fields
+                if not (f.is_nullable and getattr(self, f.name) is None)
+            ]
+            stmt = ' '.join((
+                'INSERT INTO',
+                '`' + self.TABLENAME + '`',
+                ' (',
+                ','.join('`' + f + '`' for f in fields),
+                ') VALUES (',
+                ','.join('%s' for n in range(len(fields))),
+                ')',
+            ))
+            args = [getattr(self, f) for f in fields]
+        else:
+            if not pk:
+                raise Exception(
+                    'DAO UPDATE requires that a primary key field be defined'
+                )
+            new = False
+            fields = self.fields_to_update
+            self._db_update = [] if fields is None else fields
+            if fields is None:
+                self._executed_stmt = self._stmt = None
+                callback(0, self)
+                return
+            stmt = ' '.join((
+                'UPDATE ',
+                '`' + self.TABLENAME + '`',
+                'SET',
+                ','.join(['`{}`=%s'.format(fld.column) for fld in fields]),
+                'WHERE id=%s',
+            ))
+            args = [getattr(self, fld.name) for fld in fields]
+            args.append(self.id)
 
         def on_save(rc, result):
-            if rc == 0:
-                self.after_save()
-                callback(0, self)
-            else:
+            self._executed_stmt = cursor._executed
+            if rc != 0:
                 callback(rc, result)
+                return
+            self._cache_field_values()
+            if new:
+                if not insert and pk:
+                    setattr(self, pk, cursor.lastrowid)
+            callback(0, self)
 
-        self._save(on_save, insert, cursor, start_transaction, commit)
+        self._stmt = stmt
+        self._executed_stmt = None
+        if start_transaction is False and commit is False:
+            cursor.transaction()
+        cursor.execute(
+            on_save,
+            stmt,
+            args,
+            start_transaction=start_transaction,
+            commit=commit,
+        )
 
     def insert(self, callback, id=None, cursor=None):
         """Force insert of database object.
@@ -230,6 +258,11 @@ class DAO():
 
     # ---
 
+    @classmethod
+    def _callables(cls):
+        return [nam for nam in dir(DAO) if
+                not nam.startswith('_') and callable(getattr(DAO, nam))]
+
     def _transform_foreign(self, kwargs):
         transform = {}
         for nam, val in kwargs.items():
@@ -241,73 +274,6 @@ class DAO():
             else:
                 transform[nam] = val
         return transform
-
-    def _save(self, callback, insert, cursor, start_transaction, commit):
-        pk = self._pk
-        if insert or pk is None or getattr(self, pk) is None:
-            new = True
-            self.before_insert()
-            fields = self._db_insert if insert else self._db_update
-            fields = [
-                f.name
-                for f in fields
-                if not (f.is_nullable and getattr(self, f.name) is None)
-            ]
-            stmt = ' '.join((
-                'INSERT INTO',
-                '`' + self.TABLENAME + '`',
-                ' (',
-                ','.join('`' + f + '`' for f in fields),
-                ') VALUES (',
-                ','.join('%s' for n in range(len(fields))),
-                ')',
-            ))
-            args = [getattr(self, f) for f in fields]
-        else:
-            if not pk:
-                raise Exception(
-                    'DAO UPDATE requires that a primary key field be defined'
-                )
-            new = False
-            fields = self.fields_to_update
-            self._db_update = [] if fields is None else fields
-            if fields is None:
-                self._executed_stmt = self._stmt = None
-                callback(0, self)
-                return
-            stmt = ' '.join((
-                'UPDATE ',
-                '`' + self.TABLENAME + '`',
-                'SET',
-                ','.join(['`{}`=%s'.format(fld.column) for fld in fields]),
-                'WHERE id=%s',
-            ))
-            args = [getattr(self, fld.name) for fld in fields]
-            args.append(self.id)
-
-        def on_save(rc, result):
-            self._executed_stmt = cursor._executed
-            if rc != 0:
-                callback(rc, result)
-                return
-            self._cache_field_values()
-            if new:
-                if not insert and pk:
-                    setattr(self, pk, cursor.lastrowid)
-                self.after_insert()
-            callback(0, self)
-
-        self._stmt = stmt
-        self._executed_stmt = None
-        if start_transaction is False and commit is False:
-            cursor.transaction()
-        cursor.execute(
-            on_save,
-            stmt,
-            args,
-            start_transaction=start_transaction,
-            commit=commit,
-        )
 
     def _cache_field_values(self):
         self._orig = {fld.name: getattr(self, fld.name) for
