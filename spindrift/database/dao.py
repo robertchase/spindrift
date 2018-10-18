@@ -2,7 +2,7 @@
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-from spindrift.database.field import FieldParser
+from spindrift.database.field import FieldCache
 from spindrift.database.query import Query
 
 
@@ -17,19 +17,17 @@ class DAO():
         if not hasattr(cls, '_fields'):
             if cls.TABLENAME is None:
                 raise AttributeError('TABLENAME not defined')
-            cls._fields = FieldParser(cls)
+            cls._fields = FieldCache().parse(cls)
 
     def __init__(self, **kwargs):
         kwargs = self._transform_foreign(kwargs)
-        for nam, fld in self._all_fields.items():
+        for nam, fld in self._fields.all_fields.items():
             self.__dict__[nam] = fld.default
         for nam, val in kwargs.items():
             setattr(self, nam, val)
         self._cache_field_values()
 
     def __getattr__(self, name):
-        if name[0] == '_':
-            return getattr(self._fields, name[1:])
         lookup = self._fields.lookup.get(name)
         if lookup:
             return lookup(self)
@@ -44,19 +42,10 @@ class DAO():
         if name.startswith('_'):
             super().__setattr__(name, value)
         else:
-            fld = self.field(name)
+            fld = self._fields[name]
             if not (value is None and fld.is_nullable):
                 value = fld.coerce(value)
             super().__setattr__(name, value)
-
-    @classmethod
-    def field(cls, name):
-        """Get a Field by DAO attribute name.
-        """
-        fld = cls._fields.all_fields.get(name)
-        if not fld:
-            raise AttributeError("invalid Field name: '{}'".format(name))
-        return fld
 
     @classmethod
     def load(cls, callback, key, cursor=None):
@@ -104,10 +93,11 @@ class DAO():
         if not cursor:
             raise Exception('cursor not specified')
 
-        pk = self._pk
+        pk = self._fields.pk
         if insert or pk is None or getattr(self, pk) is None:
             new = True
-            fields = self._db_insert if insert else self._db_update
+            db_insert = self._fields.db_insert
+            fields = db_insert if insert else self._fields.db_update
             fields = [
                 f.name
                 for f in fields
@@ -199,7 +189,7 @@ class DAO():
         """
         if not cursor:
             raise Exception('cursor not specified')
-        pk = self._pk
+        pk = self._fields.pk
         query = 'DELETE from `{}` where `{}`=%s'.format(
             self.TABLENAME, pk
         )
@@ -269,15 +259,15 @@ class DAO():
             foreign = self._fields.foreign.get(nam)
             if foreign:
                 fk = foreign.field_name
-                fv = getattr(val, val._pk)
+                fv = getattr(val, val._fields.pk)
                 transform[fk] = fv
             else:
                 transform[nam] = val
         return transform
 
     def _cache_field_values(self):
-        self._orig = {fld.name: getattr(self, fld.name) for
-                      fld in self._db_update}
+        self._orig = {fld.name: self._fields[fld.name] for
+                      fld in self._fields.db_update}
 
     @property
     def _fields_to_update(self):

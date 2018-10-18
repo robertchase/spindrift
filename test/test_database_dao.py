@@ -25,21 +25,26 @@ def test_basic(data):
 
 
 def test_pk(data):
-    pk = data._pk
-    assert isinstance(pk, list)
-    assert len(pk) == 1
-    assert pk[0].name == 'the_key'
+    pk = data._fields.pk
+    assert pk == 'the_key'
 
 
-def test_db_fields(data):
-    db = data._db_fields
+def test_db_read(data):
+    db = data._fields.db_read
     assert isinstance(db, list)
     assert len(db) == 3
     assert set(fld.name for fld in db) == set(('the_key', 'name', 'age'))
 
 
-def test_non_pk_fields(data):
-    db = data._non_pk_fields
+def test_db_insert(data):
+    db = data._fields.db_insert
+    assert isinstance(db, list)
+    assert len(db) == 3
+    assert set(fld.name for fld in db) == set(('the_key', 'name', 'age'))
+
+
+def test_db_update(data):
+    db = data._fields.db_update
     assert isinstance(db, list)
     assert len(db) == 2
     assert set(fld.name for fld in db) == set(('name', 'age'))

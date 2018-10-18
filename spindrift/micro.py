@@ -10,7 +10,7 @@ import platform
 import signal
 
 from ergaleia.normalize_path import normalize_path
-from spindrift.dao.db import DB
+from spindrift.database.db import DB
 from spindrift.micro_fsm.handler import InboundHandler, MysqlHandler
 from spindrift.micro_fsm.parser import Parser as parser
 from spindrift.rest.handler import RESTContext

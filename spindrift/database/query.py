@@ -59,8 +59,8 @@ class Query(object):
 
         self._join += '{} `{}` ON {} = {}'.format(
             join, table.TABLENAME,
-            table.field(field).fullname,
-            join_table.field(join_field).fullname,
+            table._fields[field].fullname,
+            join_table._fields[join_field].fullname,
         )
 
         return self

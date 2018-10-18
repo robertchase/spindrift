@@ -82,7 +82,7 @@ class Children:
 
         def _children(callback, cursor):
             self.cls.query().where('`{}`=%s'.format(self.field_name)).execute(
-                callback, getattr(instance, instance._pk), cursor=cursor
+                callback, getattr(instance, instance._fields.pk), cursor=cursor
             )
         return _children
 
@@ -107,14 +107,24 @@ def coerce_int(value):
     raise ValueError("invalid number for coerce_int(): '{}'".format(value))
 
 
-class FieldParser:
+class FieldCache:
 
-    def __init__(self, cls):
-        reserved = cls._callables()
+    def __init__(self):
         self.all_fields = {}
         self.foreign = {}
         self.lookup = {}
+        self.db_read = []
+        self.db_insert = []
+        self.db_update = []
 
+    def __getitem__(self, name):
+        fld = self.all_fields.get(name)
+        if fld is None:
+            raise AttributeError("invalid Field name: '{}'".format(name))
+        return fld
+
+    def parse(self, cls):
+        reserved = cls._callables()
         fields = self.parse_fields(cls, reserved)
         self.parse_children(cls, reserved)
         self.parse_pk(fields, reserved)
@@ -122,6 +132,8 @@ class FieldParser:
         self.db_read = [fld for fld in fields if fld.is_database]
         self.db_insert = [fld for fld in self.db_read if not fld.expression]
         self.db_update = [fld for fld in self.db_insert if not fld.is_primary]
+
+        return self
 
     def parse_fields(self, cls, reserved):
         fields = []
