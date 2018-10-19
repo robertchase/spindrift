@@ -6,7 +6,8 @@ from spindrift.database.field import Field, coerce_bool, coerce_int
 def test_basic():
     fld = Field()
     assert fld
-    assert fld.coerce == str
+    assert fld.coerce.__name__ == '<lambda>'
+    assert fld.coerce('123') == '123'
     assert fld.default is None
     assert fld.name is None
     assert fld.is_nullable is False
