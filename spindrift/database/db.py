@@ -40,6 +40,21 @@ class DB(object):
             column=True,
         )
 
+    def run_sync(self, fn, *args, **kwargs):
+        async = None
+
+        def cb(rc, result):
+            nonlocal async
+            if rc != 0:
+                raise Exception(result)
+            async = result
+
+        fn(cb, *args, **kwargs)
+        cursor = kwargs.get('cursor')
+        while cursor.is_running:
+            self.network.service()
+        return async
+
     @property
     def connection(self):
         return self.network.add_connection(
@@ -51,4 +66,6 @@ class DB(object):
 
     @property
     def cursor(self):
-        return self.connection.cursor
+        _cursor = self.connection.cursor
+        _cursor._run_sync = self.run_sync
+        return _cursor

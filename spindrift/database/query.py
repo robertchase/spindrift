@@ -92,8 +92,7 @@ class Query(object):
                 cursor=None):
         if not cursor:
             raise Exception('cursor not specified')
-        self._stmt = self._build(one, limit, offset, for_update)
-        self._executed_stmt = None
+        stmt = self._build(one, limit, offset, for_update)
         if before_execute:
             before_execute(self)
 
@@ -102,7 +101,6 @@ class Query(object):
                 return callback(rc, result)
 
             columns, values = result
-            self._executed_stmt = cursor._executed
             if after_execute:
                 after_execute(self)
             rows = []
@@ -123,4 +121,4 @@ class Query(object):
                 rows = rows[0] if len(rows) else None
             callback(0, rows)
 
-        cursor.execute(on_execute, self._stmt, arg)
+        cursor.execute(on_execute, stmt, arg)

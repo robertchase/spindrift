@@ -27,11 +27,17 @@ class DAO():
             setattr(self, nam, val)
         self._cache_field_values()
 
+    def __repr__(self):
+        return '<{}>:[{}]'.format(
+            self.__class__.__name__,
+            {nam: getattr(self, nam) for nam in self._fields.all_fields},
+        )
+
     def __getattr__(self, name):
         lookup = self._fields.lookup.get(name)
         if lookup:
             return lookup(self)
-        joined_table = getattr(self, '_tables', {}).get(name)
+        joined_table = self.__dict__.get('_tables', {}).get(name)
         if joined_table:
             return joined_table
         raise AttributeError("DAO '{}' does not have attribute '{}'".format(
@@ -80,15 +86,17 @@ class DAO():
 
            Notes:
 
-               1. Objects with a None value for _pk are INSERTED. After the
-                  INSERT, the _pk attribute is set to the auto-generated
-                  primary key.
+               1. Objects with a None primary key are INSERTED. After the
+                  INSERT, the primary key attribute is set to the
+                  auto-generated primary key.
 
                2. On UPDATE, only changed fields, if any, are SET.
 
                3. If start_transaction and commit are not specified, then the
                   save will be automatically wrapped in a transaction
                   (start_transaction, save, commit).
+
+               4. This call will not change expression Fields.
         """
         if not cursor:
             raise Exception('cursor not specified')
@@ -119,7 +127,7 @@ class DAO():
                     'DAO UPDATE requires that a primary key field be defined'
                 )
             new = False
-            fields = self.fields_to_update
+            fields = self._fields_to_update
             self._db_update = [] if fields is None else fields
             if fields is None:
                 self._executed_stmt = self._stmt = None
@@ -221,7 +229,7 @@ class DAO():
 
     @classmethod
     def count(cls, callback, where=None, arg=None, cursor=None):
-        """Count set of objects in underlying table
+        """Count a set of objects in underlying table
 
            Parameters:
                callback - callback_fn(rc, result)
@@ -273,7 +281,7 @@ class DAO():
     def _fields_to_update(self):
         f = [
             fld
-            for fld in self._db_update
+            for fld in self._fields.db_update
             if getattr(self, fld.name) != self._orig.get(fld.name)
         ]
         if len(f) == 0:
