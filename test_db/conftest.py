@@ -28,6 +28,7 @@ def db_cursor(network):
         host='mysql',
         # fsm_trace=fsm_trace,
         # sql_trace=sql_trace,
+        commit=False,
     )
     cursor = db.cursor
     return cursor
@@ -50,6 +51,5 @@ def db(db_cursor, network):
                 network.service()
 
     d = _db()
-    db_cursor.start_transaction()  # never ends (forces rollback)
     yield d
     assert d.is_done  # set is_done at last step of test (ensures full test)
