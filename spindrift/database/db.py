@@ -4,13 +4,14 @@ The MIT License (MIT)
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import spindrift.mysql.connection as connection
+from spindrift.network import Network
 
 
 class DB(object):
 
     def __init__(
                 self,
-                network,
+                network=None,
                 user=None,
                 pswd=None,
                 db=None,
@@ -24,7 +25,7 @@ class DB(object):
                                    # spindrift.mysq.connection.MysqlHandler
                 commit=True,       # False to disallow COMMIT
             ):
-        self.network = network
+        self.network = network if network else Network()
         self.host = host
         self.port = port
         self.context = connection.MysqlContext(
