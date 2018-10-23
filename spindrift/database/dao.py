@@ -28,7 +28,7 @@ class DAO():
         self._cache_field_values()
 
     def __repr__(self):
-        return '<{}>:[{}]'.format(
+        return '<{}>:{}'.format(
             self.__class__.__name__,
             {nam: getattr(self, nam) for nam in self._fields.all_fields},
         )
