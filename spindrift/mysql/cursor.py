@@ -41,12 +41,13 @@ class Cursor(object):
         return self
 
     def commit(self):
+        if not self.commit_enabled:
+            return self
         if self._transaction_depth == 0:
-            return
+            return self
         self._transaction_depth -= 1
         if self._transaction_depth == 0:
-            if self.commit_enabled:
-                self._transaction_commit = True
+            self._transaction_commit = True
         return self
 
     def rollback(self):
