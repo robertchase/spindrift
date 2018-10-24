@@ -24,10 +24,12 @@ class DB(object):
                 handler=None,      # alternate handler for mysql connection
                                    # spindrift.mysq.connection.MysqlHandler
                 commit=True,       # False to disallow COMMIT
+                sync=False,        # operate in synchronous mode
             ):
         self.network = network if network else Network()
         self.host = host
         self.port = port
+        self.is_sync = sync
         self.context = connection.MysqlContext(
             user=user,
             pswd=pswd,
@@ -41,21 +43,6 @@ class DB(object):
             column=True,
         )
 
-    def run_sync(self, fn, *args, **kwargs):
-        async = None
-
-        def cb(rc, result):
-            nonlocal async
-            if rc != 0:
-                raise Exception(result)
-            async = result
-
-        fn(cb, *args, **kwargs)
-        cursor = kwargs.get('cursor')
-        while cursor.is_running:
-            self.network.service()
-        return async
-
     @property
     def connection(self):
         return self.network.add_connection(
@@ -65,8 +52,30 @@ class DB(object):
             context=self.context,
         )
 
+
     @property
     def cursor(self):
-        _cursor = self.connection.cursor
-        _cursor._run_sync = self.run_sync
-        return _cursor
+        if not self.is_sync:
+            return self.connection.cursor
+
+        def run_sync(fn, *args, **kwargs):
+            async = None
+
+            def cb(rc, result):
+                nonlocal async
+                if rc != 0:
+                    raise Exception(result)
+                async = result
+
+            fn(cb, *args, **kwargs)
+            cursor = kwargs.get('cursor')
+            while cursor.is_running:
+                self.network.service()
+            return async
+
+        connection = self.connection
+        while not connection.is_ready:  # finish mysql handshake
+            self.network.service()
+        cursor = connection.cursor
+        cursor._run_sync = run_sync
+        return cursor

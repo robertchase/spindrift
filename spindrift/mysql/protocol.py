@@ -30,6 +30,7 @@ class Protocol(object):
             query_complete=self.act_query_complete,
             read_data_packet=self.act_read_data_packet,
             read_descriptor_packet=self.act_read_descriptor_packet,
+            ready=self.act_ready,
             transaction=self.act_transaction,
             transaction_end=self.act_transaction_end,
 
@@ -292,6 +293,9 @@ class Protocol(object):
 
     def act_close(self):
         self.connection.close(None)
+
+    def act_ready(self):
+        self.connection.is_ready = True
 
     def act_connected(self):
         self.connection.on_connected()

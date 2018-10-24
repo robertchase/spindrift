@@ -57,6 +57,13 @@ class DAO():
     def load(cls, callback, key, cursor=None):
         """Load a database row by primary key.
         """
+        if not cursor:
+            if hasattr(callback, '_run_sync'):
+                return callback._run_sync(
+                    cls.load, key, cursor=callback
+                )
+            raise Exception('cursor not specified')
+
         cls.query().by_pk().execute(
             callback, key, one=True, cursor=cursor
         )
@@ -99,6 +106,11 @@ class DAO():
                4. This call will not change expression Fields.
         """
         if not cursor:
+            if hasattr(callback, '_run_sync'):
+                return callback._run_sync(
+                    self.save, insert=insert, cursor=callback,
+                    start_transaction=start_transaction, commit=commit
+                )
             raise Exception('cursor not specified')
 
         pk = self._fields.pk
@@ -196,6 +208,10 @@ class DAO():
               None
         """
         if not cursor:
+            if hasattr(callback, '_run_sync'):
+                return callback._run_sync(
+                    self.delete, cursor=callback,
+                )
             raise Exception('cursor not specified')
         pk = self._fields.pk
         query = 'DELETE from `{}` where `{}`=%s'.format(
@@ -241,6 +257,10 @@ class DAO():
               count (int)
         """
         if not cursor:
+            if hasattr(callback, '_run_sync'):
+                return callback._run_sync(
+                    cls.count, where=where, arg=arg, cursor=callback,
+                )
             raise Exception('cursor not specified')
         query = 'SELECT COUNT(*) FROM `{}`'.format(cls.TABLENAME)
         if where:

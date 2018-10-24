@@ -91,6 +91,12 @@ class Query(object):
                 before_execute=None, after_execute=None,
                 cursor=None):
         if not cursor:
+            if hasattr(callback, '_run_sync'):
+                return callback._run_sync(
+                    self.execute, arg=arg, one=one, limit=limit, offset=offset,
+                    for_update=for_update, before_execute=before_execute,
+                    after_execute=after_execute, cursor=callback,
+                )
             raise Exception('cursor not specified')
         stmt = self._build(one, limit, offset, for_update)
         if before_execute:

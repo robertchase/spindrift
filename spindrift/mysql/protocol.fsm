@@ -29,6 +29,7 @@ STATE autocommit
 STATE isolation
     ENTER isolation
     EVENT ok connected
+        ACTION ready
     EVENT close close
 
 STATE connected

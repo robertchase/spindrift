@@ -13,6 +13,7 @@ class MysqlHandler(network.Handler):
     def on_init(self):
         self._protocol = Protocol(self)
         self._cursor = Cursor(self._protocol)
+        self.is_ready = False
 
     @property
     def cursor(self):
