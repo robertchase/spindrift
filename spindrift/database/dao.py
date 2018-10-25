@@ -239,7 +239,7 @@ class DAO():
                List of objects of type cls
         """
         args = tuple() if not args else args
-        cls.query().where(where).execute(
+        return cls.query().where(where).execute(
             callback, arg=args, cursor=cursor
         )
 

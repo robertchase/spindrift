@@ -54,9 +54,9 @@ class Foreign:
         return self._cls
 
     def __call__(self, instance):
-        def _foreign(callback, cursor):
+        def _foreign(callback, cursor=None):
             id = getattr(instance, self.field_name)
-            self.cls.load(callback, id, cursor=cursor)
+            return self.cls.load(callback, id, cursor=cursor)
         return _foreign
 
 
@@ -80,9 +80,11 @@ class Children:
             if self.field_name is None:
                 raise AttributeError('No foreign key match found')
 
-        def _children(callback, cursor):
-            self.cls.query().where('`{}`=%s'.format(self.field_name)).execute(
-                callback, getattr(instance, instance._fields.pk), cursor=cursor
+        def _children(callback, cursor=None):
+            return self.cls.query().where(
+                '`{}`=%s'.format(self.field_name)).execute(
+                    callback, getattr(instance, instance._fields.pk),
+                    cursor=cursor
             )
         return _children
 

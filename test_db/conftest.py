@@ -35,6 +35,23 @@ def db_cursor(network):
 
 
 @pytest.fixture
+def sync(network):
+    db = DB(
+        network,
+        user='test',
+        db='spindrift',
+        host='mysql',
+        # fsm_trace=fsm_trace,
+        # sql_trace=sql_trace,
+        commit=False,
+        sync=True,
+    )
+    cursor = db.cursor
+    yield cursor
+    cursor.close()
+
+
+@pytest.fixture
 def db(db_cursor, network):
 
     class _db(object):
