@@ -77,39 +77,6 @@ class Cursor(object):
         else:
             return self.protocol.escape(args)
 
-    def select(self, *args, **kwargs):
-        """Run an arbitrary SELECT statment
-
-           select(callback, query, args)
-
-               callback - callback taking (rc, result)
-               query    - select statement
-               args     - substitution parameters for select
-
-           result - list of result objects where each column
-                    is available as an attribute of an object
-
-           Notes:
-               1. result object attribute names are the
-                  name assigned by 'AS' or the column name.
-               2. if the databse connection is operating in
-                  sync mode, then the callback parameter is not
-                  supplied.
-        """
-        if hasattr(self, '_run_sync'):
-            return self._run_sync(
-                self._select, *args, **kwargs
-            )
-        self._select(*args, **kwargs)
-
-    def _select(self, callback, query, args=None):
-
-        class Record:
-            def __init__(self, **kwargs):
-                self.__init__.update(kwargs)
-
-        self.execute(callback, query, args, cls=Record)
-
     def execute(self, callback, query, args=None,
                 start_transaction=False, commit=False, cls=None):
         """ Execute a query """

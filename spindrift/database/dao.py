@@ -54,6 +54,49 @@ class DAO():
             super().__setattr__(name, value)
 
     @classmethod
+    def select(cls, callback, query, args=None, cursor=None):
+        """Run an arbitrary SELECT statement
+
+           The objects returned in the result do not have any of the
+           functionality of a DAO. Columns are accessed as attributes
+           by name using dot or bracket notation.
+
+           Parameters:
+               callback - callback_fn(rc, result)
+               query    - query string (with %s substitutions)
+               args     - substitution parameters
+                          (None, scalar or tuple)
+               cursor   - database cursor
+
+           Callback result:
+               ((column names), (result objects))
+
+           Notes:
+               1. a column name is either the value specified in the
+                  query 'AS' clause, or the value used to indicate the
+                  select_expr
+        """
+        if not cursor:
+            if hasattr(callback, '_run_sync'):
+                return callback._run_sync(
+                    cls.select, query, args=args, cursor=callback,
+                )
+            raise Exception('cursor not specified')
+
+        class Row:
+
+            def __init__(self, **kwargs):
+                self.__dict__.update(kwargs)
+
+            def __getitem__(self, name):
+                return self.__dict__[name]
+
+            def __repr__(self):
+                return str(self.__dict__)
+
+        cursor.execute(callback, query, args=args, cls=Row)
+
+    @classmethod
     def load(cls, callback, key, cursor=None):
         """Load a database row by primary key.
         """

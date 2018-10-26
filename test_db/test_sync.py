@@ -60,3 +60,13 @@ def test_foreign(data, sync):
     assert result
     parent = result.root(sync)
     assert parent
+
+
+def test_select(data, sync):
+    cols, rows = models.Node.select(
+        sync, 'select * from child'
+    )
+    assert len(cols) == 5
+    assert len(rows) == 2
+    names = [row.name for row in rows]
+    assert set(names) == set((models.NODE1, models.NODE2))
