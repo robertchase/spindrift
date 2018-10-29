@@ -80,10 +80,10 @@ class Cursor(object):
     def execute(self, callback, query, args=None,
                 start_transaction=False, commit=False, cls=None):
         """ Execute a query """
-        self._before_executed = query
+        self.statement_before = query
         if args is not None:
             query = query % self._escape_args(args)
-        self._executed = query
+        self.statement = query
 
         if start_transaction:
             self.start_transaction()

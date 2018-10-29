@@ -29,6 +29,11 @@ def test_pk(data):
     assert pk == 'the_key'
 
 
+def test_is_nullable(data):
+    with pytest.raises(TypeError):
+        data.name = None
+
+
 def test_db_read(data):
     db = data._fields.db_read
     assert isinstance(db, list)

@@ -17,6 +17,19 @@ def test_basic():
     assert fld.is_database is True
 
 
+def test_coerce_sequence():
+    fld = Field(('a', 'b', 'c'))
+    assert fld.coerce.__name__ == '_inner'
+    assert 'a' == fld.coerce('a')
+    with pytest.raises(ValueError):
+        fld.coerce('d')
+
+
+def test_coerce_not_callable():
+    with pytest.raises(TypeError):
+        Field('a')
+
+
 def test_expression():
     fld = Field()
     assert fld.is_readonly is False

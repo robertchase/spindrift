@@ -40,8 +40,8 @@ class DAO():
         joined_table = self.__dict__.get('_tables', {}).get(name)
         if joined_table:
             return joined_table
-        raise AttributeError("DAO '{}' does not have attribute '{}'".format(
-            self.__class__.__name__, name
+        raise AttributeError("'{}' is not a '{}' attribute".format(
+            name, self.__class__.__name__
         ))
 
     def __setattr__(self, name, value):
@@ -49,6 +49,8 @@ class DAO():
             super().__setattr__(name, value)
         else:
             fld = self._fields[name]
+            if value is None and not fld.is_nullable:
+                raise TypeError("'{}' cannot be None".format(name))
             if not (value is None and fld.is_nullable):
                 value = fld.coerce(value)
             super().__setattr__(name, value)
@@ -157,6 +159,7 @@ class DAO():
             raise Exception('cursor not specified')
 
         pk = self._fields.pk
+        self._updated = []
         if insert or pk is None or getattr(self, pk) is None:
             new = True
             db_insert = self._fields.db_insert
@@ -183,9 +186,7 @@ class DAO():
                 )
             new = False
             fields = self._fields_to_update
-            self._db_update = [] if fields is None else fields
             if fields is None:
-                self._executed_stmt = self._stmt = None
                 callback(0, self)
                 return
             stmt = ' '.join((
@@ -199,7 +200,6 @@ class DAO():
             args.append(self.id)
 
         def on_save(rc, result):
-            self._executed_stmt = cursor._executed
             if rc != 0:
                 callback(rc, result)
                 return
@@ -207,10 +207,10 @@ class DAO():
             if new:
                 if not insert and pk:
                     setattr(self, pk, cursor.lastrowid)
+            else:
+                self._updated = [field.name for field in fields]
             callback(0, self)
 
-        self._stmt = stmt
-        self._executed_stmt = None
         if start_transaction is False and commit is False:
             cursor.transaction()
         cursor.execute(
@@ -337,7 +337,7 @@ class DAO():
         return transform
 
     def _cache_field_values(self):
-        self._orig = {fld.name: self._fields[fld.name] for
+        self._orig = {fld.name: getattr(self, fld.name) for
                       fld in self._fields.db_update}
 
     @property
@@ -345,7 +345,7 @@ class DAO():
         f = [
             fld
             for fld in self._fields.db_update
-            if getattr(self, fld.name) != self._orig.get(fld.name)
+            if getattr(self, fld.name) != self._orig[fld.name]
         ]
         if len(f) == 0:
             return None

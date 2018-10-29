@@ -3,14 +3,37 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
+import collections
+
 from ergaleia.import_by_path import import_by_path
+
+
+def _coerce(coerce):
+    if coerce is None:
+        return lambda x: x
+
+    if isinstance(coerce, collections.Sequence) and not \
+            isinstance(coerce, str):
+        def _inner(value):
+            if value in coerce:
+                return value
+            raise ValueError("'{}' not valid for enum '{}'".format(
+                value, coerce)
+            )
+        return _inner
+
+    if not callable(coerce):
+        raise TypeError('coerce must be callable')
+
+    return coerce
 
 
 class Field:
     def __init__(self, coerce=None, default=None, column=None,
                  is_nullable=False, is_primary=False, expression=None,
                  is_readonly=False, is_database=True, foreign=None):
-        self.coerce = coerce if coerce else lambda x: x
+
+        self.coerce = _coerce(coerce)
         self.default = default
         self.alias = None
         self.column = column
@@ -45,7 +68,7 @@ class Foreign:
         self._cls = cls
         self.field_name = None
         if attribute_name is None:
-            attribute_name = cls.split('.')[-1].lower()
+            attribute_name = self.cls.__name__.lower()
         self.attribute_name = attribute_name
 
     @property
