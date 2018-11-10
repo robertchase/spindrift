@@ -1,4 +1,6 @@
 from fsm.FSM import STATE, EVENT, FSM
+# pylint: skip-file
+# flake8: noqa
 # add_arg
 # add_config
 # add_connection
@@ -17,15 +19,15 @@ from fsm.FSM import STATE, EVENT, FSM
 # add_teardown
 def create(**actions):
   S_init=STATE('init')
-  S_database=STATE('database',enter=actions['add_database'])
-  S_setup=STATE('setup',enter=actions['add_setup'])
-  S_teardown=STATE('teardown',enter=actions['add_teardown'])
-  S_log=STATE('log',enter=actions['add_log'])
-  S_server=STATE('server',enter=actions['add_server'])
-  S_route=STATE('route',enter=actions['add_route'])
-  S_method=STATE('method',enter=actions['add_method'])
-  S_connection=STATE('connection',enter=actions['add_connection'])
-  S_resource=STATE('resource',enter=actions['add_resource'])
+  S_database=STATE('database',on_enter=actions['add_database'])
+  S_setup=STATE('setup',on_enter=actions['add_setup'])
+  S_teardown=STATE('teardown',on_enter=actions['add_teardown'])
+  S_log=STATE('log',on_enter=actions['add_log'])
+  S_server=STATE('server',on_enter=actions['add_server'])
+  S_route=STATE('route',on_enter=actions['add_route'])
+  S_method=STATE('method',on_enter=actions['add_method'])
+  S_connection=STATE('connection',on_enter=actions['add_connection'])
+  S_resource=STATE('resource',on_enter=actions['add_resource'])
   S_init.set_events([EVENT('server',[], S_server),EVENT('connection',[], S_connection),EVENT('config',[actions['add_config']]),EVENT('database',[], S_database),EVENT('setup',[], S_setup),EVENT('teardown',[], S_teardown),EVENT('log',[], S_log),])
   S_database.set_events([EVENT('server',[], S_server),EVENT('connection',[], S_connection),EVENT('config',[actions['add_config']]),EVENT('setup',[], S_setup),EVENT('teardown',[], S_teardown),EVENT('log',[], S_log),])
   S_setup.set_events([EVENT('server',[], S_server),EVENT('connection',[], S_connection),EVENT('config',[actions['add_config']]),EVENT('database',[], S_database),EVENT('teardown',[], S_teardown),EVENT('log',[], S_log),])
