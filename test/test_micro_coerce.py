@@ -14,6 +14,7 @@ def to_date(ts):
 
 
 def coerce(request, id, when):
+    assert id == ID
     return when.isoformat()
 
 
@@ -25,7 +26,7 @@ def on_coerce(rc, result):
 def test_ping():
     s = [
         'SERVER coerce {}'.format(PORT),
-        '  ROUTE {}/(?P<id>\d+)$'.format(PATH),
+        r'  ROUTE {}/(?P<id>\d+)$'.format(PATH),
         '    TYPE int',
         '    GET test.test_micro_coerce.coerce',
         '        CONTENT when type=test.test_micro_coerce.to_date',
