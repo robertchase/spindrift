@@ -90,10 +90,40 @@ ROUTE [pattern]
 The `route` directive defines a regular expression used to match
 the *path* in incoming HTTP documents.
 
-A `route` directive is not useful without subsequent
-directives describing how to handle HTTP methods.
+The `pattern` can include regex groups, whose matched values are passed as arguments
+to the rest handler.
+
+
+### TYPE
+
+```
+TYPE int|bool|path
+```
+
+The `type` directive defines a type-coercion function
+for a `route pattern`'s
+regex group.
+The value parsed from the path is
+wrapped with the specified function before being
+added as a handler's parameter.
+The function may transform the value in any way, or raise an Exception.
+
+Two built-in functions are available:
+
+* int - ensure value is composed of only numeric characters, return int
+* bool - transform `true` (any case) or `1` to True, and `false` (any case) or `0` to False
+
+Otherwise, `path` is a dot-delimited path to a custom function, which will
+be dynamically loaded.
+
+Each `TYPE` directive is paired to the regex groups in sequenece. There can not
+be more `TYPE` directives than regex groups, but there can be fewer.
 
 ### GET / POST / PUT / DELETE
+
+A `route` directive is not useful without
+one or more of the following
+directives describing how to handle HTTP methods.
 
 ```
 [GET|POST|PUT|DELETE] [path]
@@ -111,11 +141,59 @@ ROUTE /users/(\d+)$
   PUT myservice.handlers.user.update
 ```
 
-Here, the function `get` in the program `myservice/handlers.user.py` will be called
+Here, the function `get` in the module `myservice/handlers.user.py` will be called
 when an HTTP document's method matches `GET` and the path matches `/users/123` (or any number).
 
 The function `update` in the program `myservice/handlers.user.py` will be called
 when an HTTP document's method matches `PUT` and the path matches `/users/456` (or any number).
+
+### CONTENT
+```
+CONTENT name type=None is_required=True
+```
+
+The `content` directive defines a keyword argument to the rest handler
+that is extracted from the http document.
+The `type` parameter, if specified, acts in the same way as the `type` directive.
+The `is_required` parameter indicates if the `content` argument is required
+to be present.
+
+The parameter is located in the http document as a key value-pair in one of:
+
+1. http_body as a json dictionary
+2. query string
+3. http_body as form data
+
+##### Example
+
+```
+ROUTE /users/(\d+)/age$
+  TYPE int
+  PUT myservice.handlers.user.update_age
+    CONTENT age int
+```
+
+Here the function `update_age` in the module `myservice/handlers/user`
+will be called when an HTTP documents's method matches `PUT` and the path
+matches `/users/123/age` (or any number).
+
+If the `PUT` call includes the following body:
+```
+{
+  "age": 50
+}
+```
+
+then `age=50` will be passed to the `update_age` handler.
+
+The `user_id` argument will be coerced to an `int` (123), as will `age` (50).
+
+Here is a possible signature for the `update_age` handler (including
+the `request` argument, which is passed to all handlers):
+```
+def update_age(request, user_id, age):
+  pass
+```
 
 ### DATABASE
 
