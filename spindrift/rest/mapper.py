@@ -30,7 +30,7 @@ class RESTArg(object):
         self.name = name
         self.is_required = is_required
 
-        if type in _VALIDATE_MAP:
+        if type in ('int', 'bool'):
             type = _VALIDATE_MAP[type]
         else:
             try:
