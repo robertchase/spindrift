@@ -44,8 +44,7 @@ class RESTHandler(http.HTTPHandler):
             self._coercer = rest_match.coercer
         else:
             self.on_rest_no_match()
-            self._rest_send(404, 'Not Found')
-            self.close('matching rest handler not found')
+            self._rest_send(404, 'Not Found', close=True)
 
     def on_http_data(self):
         try:
@@ -62,17 +61,14 @@ class RESTHandler(http.HTTPHandler):
             result = self._rest_handler(request, *args, **kwargs)
             if request.is_done:  # already responded
                 pass
-            elif request.is_delayed:
-                request.handler.quiesce()  # stop reading in case another request is pipelined (see on_send_complete)
-            else:
+            elif not request.is_delayed:
                 request.respond(result)
         except Exception:
             content = self.on_rest_exception(*sys.exc_info())
             kwargs = dict(code=501, message='Internal Server Error')
             if content:
                 kwargs['content'] = str(content)
-            self._rest_send(**kwargs)
-            self.close('exception encountered')
+            self._rest_send(**kwargs, close=True)
 
     def on_rest_data(self, groups):
         ''' called before rest_handler execution '''
@@ -138,11 +134,7 @@ class RESTHandler(http.HTTPHandler):
         if headers:
             args['headers'] = headers
         self.on_rest_send(code, message, content, headers)
-        self.send_server(**args)
+        self.http_send_server(**args)
 
     def on_rest_send(self, code, message, content, headers):
         pass
-
-    def on_send_complete(self):
-        super(RESTHandler, self).on_send_complete()
-        self.unquiesce()  # start looking for another request in the pipeline

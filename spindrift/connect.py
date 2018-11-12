@@ -69,8 +69,8 @@ def connect(
 
         Notes:
 
-            1. If body is a dict and method is GET, then the contents of dict are added
-               to the query string and body is cleared.
+            1. If body is a dict and method is GET, then the contents of dict
+               are added to the query string and body is cleared.
     """
     if query is not None:
         if isinstance(query, dict):
@@ -145,8 +145,8 @@ class ConnectContext(object):
         self.host = host
         self.headers = headers
         self.body = body
+        self.content_type = 'form' if is_form else 'text/html'
         self.is_json = is_json
-        self.is_form = is_form
         self.timeout = timeout
         self.wrapper = wrapper
         self.evaluate = evaluate
@@ -161,9 +161,13 @@ class ConnectHandler(HTTPHandler):
 
     def on_init(self):
         self.is_done = False
+        self.is_success = False
         self.is_timeout = False
         self.setup()
         self.check_kwargs()
+        self.timer = self.context.timer.add(
+            self.on_timeout, self.context.timeout * 1000
+        ).start()
         self.after_init()
 
     def check_kwargs(self):
@@ -183,30 +187,14 @@ class ConnectHandler(HTTPHandler):
                 self.context.url,
             )
 
-    def _form(self, context):
-        if context.is_form:
-            if not context.headers:
-                context.headers = {}
-            context.headers['Content-Type'] = \
-                'application/x-www-form-urlencoded'
-
     def setup(self):
         context = self.context
 
-        self._form(context)
-
-        if isinstance(context.body, dict):
-            context_type = None
-            if context.headers:
-                context_type = context.headers.get('Content-Type')
-
-            if context_type == 'application/x-www-form-urlencoded':
-                context.body = urllib.urlencode(context.body)
-            elif context.method == 'GET':
-                query = urllib.parse_qs(context.query)
-                query.update(context.body)
-                context.query = urllib.urlencode(context.body)
-                context.body = None
+        if isinstance(context.body, dict) and context.method == 'GET':
+            query = urllib.parse_qs(context.query)
+            query.update(context.body)
+            context.query = urllib.urlencode(context.body)
+            context.body = None
 
         if context.path == '':
             context.path = '/'
@@ -216,25 +204,21 @@ class ConnectHandler(HTTPHandler):
 
         if isinstance(context.body, (dict, list, tuple, float, bool, int)):
             try:
-                context.body = json.dumps(context.body)
+                json.dumps(context.body)
             except Exception:
                 context.body = str(context.body)
             else:
-                if context.headers is None:
-                    context.headers = {}
-                context.headers['Content-Type'] = \
-                    'application/json; charset=utf-8'
+                context.content_type = 'json'
 
         if context.body is None:
             context.body = ''
-        self.timer = self.context.timer.add(
-            self.on_timeout, self.context.timeout * 1000
-        ).start()
 
     def done(self, result, rc=0):
         if self.is_done:
             return
         self.is_done = True
+        if not self.is_success:
+            rc = 1
         self.timer.cancel()
         self.context.callback(rc, result)
         self.close('transaction complete')
@@ -283,6 +267,7 @@ class ConnectHandler(HTTPHandler):
             resource=context.path,
             headers=context.headers,
             content=context.body,
+            content_type=context.content_type,
             close=True,
         )
 
@@ -337,14 +322,15 @@ class ConnectHandler(HTTPHandler):
                 result = self.context.wrapper(result)
             except Exception as e:
                 self.done(str(e), 1)
+        self.is_success = True
 
         self.done(result)
 
-    def on_fail(self):
-        self.done(self.close_reason, 1)
+    def on_fail(self, message):
+        self.done(message, 1)
 
-    def on_http_error(self):
-        self.done('http error', 1)
+    def on_http_error(self, message):
+        self.done(message, 0)
 
     def on_timeout(self):
         self.is_timeout = True

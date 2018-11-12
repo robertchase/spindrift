@@ -2,6 +2,7 @@ tmp*
 __pycache__
 .ropeproject
 *.pyc
+.pytest_cache
 .cache
 *.pem
 *.swp
