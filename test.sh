@@ -26,4 +26,4 @@ TEST_IMAGE=${TEST_IMAGE:-bob/spindrift-test}
 CMD=${*:-test test_db}
 GIT=/opt/git
 
-docker run --rm -v=$TEST_GIT:$GIT -w $GIT/spindrift --net $TEST_NET -e MYSQL_HOST=$TEST_MYSQL_HOST -e PYTHONPATH=. $TEST_IMAGE pytest $CMD
+docker run --rm -v=$TEST_GIT:$GIT -w $GIT/spindrift --net $TEST_NET -e MYSQL_HOST=$TEST_MYSQL_HOST -e PYTHONPATH=$GIT/ergaleia:$GIT/fsm:. $TEST_IMAGE pytest $CMD
