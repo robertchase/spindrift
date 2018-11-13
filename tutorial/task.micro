@@ -1,8 +1,13 @@
 SERVER tasks 12345
+
   ROUTE /tasks$
     GET tutorial.task.read
     POST tutorial.task.create
-  ROUTE /tasks/(\d*)$
+        CONTENT description
+
+  ROUTE /tasks/(?P<id>\d*)$
+    TYPE int
     GET tutorial.task.read
     PUT tutorial.task.update
+        CONTENT description
     DELETE tutorial.task.delete

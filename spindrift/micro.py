@@ -14,7 +14,7 @@ from spindrift.database.db import DB
 from spindrift.micro_fsm.handler import InboundHandler, MysqlHandler
 from spindrift.micro_fsm.parser import Parser as parser
 from spindrift.rest.handler import RESTContext
-from spindrift.rest.mapper import RESTMapper
+from spindrift.rest.mapper import RESTMapper, RESTMethod
 from spindrift.network import Network
 from spindrift.timer import Timer
 
@@ -23,14 +23,18 @@ import spindrift.micro_fsm.connect as micro_connection
 log = logging.getLogger(__name__)
 
 
+def trace(state, event, is_default, is_internal):
+    log.debug('parser s={}, e={}'.format(state, event))
+
+
 class Micro(object):
     def __init__(self):
         self.network = Network()
         self.timer = Timer()
         self.connection = type('Connections', (object,), dict())
 
-    def load(self, micro='micro', config=None):
-        self.parser = parser().parse(micro)
+    def load(self, micro='micro', config=None, is_trace=False):
+        self.parser = parser.parse(micro, trace if is_trace else None)
         if config:
             self.parser.config._load(config)
         return self
@@ -230,11 +234,21 @@ def setup_servers(config, micro, servers):
             conf.http_max_line_length,
             conf.http_max_header_count,
         )
-        for route in server.routes:
+        for routenum, route in enumerate(server.routes, start=1):
             methods = {}
-            for method, path in route.methods.items():
-                methods[method] = _import(path)
-            mapper.add(route.pattern, **methods)
+            for name, defn in route.methods.items():
+                try:
+                    method = RESTMethod(defn.path)
+                    for arg in route.args:
+                        method.add_arg(arg.type)
+                    for arg in defn.content:
+                        method.add_content(arg.name, arg.type, arg.is_required)
+                    methods[name] = method
+                except Exception as e:
+                    raise Exception(
+                        'error setting up server: {}'.format(str(e))
+                    )
+            mapper.add(route.pattern, methods)
         try:
             handler = _import(conf.handler, is_module=True)
         except KeyError:
@@ -375,6 +389,11 @@ if __name__ == '__main__':
         dest='connections_only', action='store_true', default=False,
         help='parse micro and config files and display defined connections'
     )
+    aparser.add_argument(
+        '-t', '--trace',
+        dest='trace', action='store_true', default=False,
+        help='log parser fsm events'
+    )
     args = aparser.parse_args()
 
     micro = args.micro
@@ -388,7 +407,7 @@ if __name__ == '__main__':
     else:
         config = args.config
 
-    m = module.micro.load(micro, config)
+    m = module.micro.load(micro, config, is_trace=args.trace)
     if args.config_only:
         print(m.parser.config)
     elif args.connections_only:

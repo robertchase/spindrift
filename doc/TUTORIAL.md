@@ -57,36 +57,53 @@ and, in the server terminal, log messages record the processing of the `REST` ca
 The log messages show data about the peer, the `REST` resource, the response code and
 statistics about handler duration, bytes received (rx) and bytes transmitted (tx).
 
-## A full REST service
+## CRUD service
 
 Now, we look at a set of CRUD calls.
 
 ```
-ID = {'id': 0}
-TASKS = {}
+class Tasks(dict):
+
+    def __init__(self):
+        self.id = 0
+
+    @property
+    def next_id(self):
+        self.id += 1
+        return self.id
 
 
-def create(request):
-    desc = request.json['description']
-    ID['id'] = ID['id'] + 1
-    id = str(ID['id'])
-    TASKS[id] = desc
-    request.respond(201, {'id': id, 'description': desc})
+TASKS = Tasks()
+
+
+def format(id=0):
+    if id:
+        return dict(id=id, description=TASKS[id])
+    return [format(key) for key in TASKS.keys()]
+
+
+def create(request, description):
+    id = TASKS.next_id
+    TASKS[id] = description
+    return format(id)
 
 
 def read(request, id=None):
-    if id is None:
-        return TASKS
-    return {'id': id, 'description': TASKS[id]}
+    if id and id not in TASKS:
+        return 404
+    return format(id)
 
 
-def update(request, id):
-    desc = request.json['description']
-    TASKS[id] = desc
-    return {'id': id, 'description': desc}
+def update(request, id, description):
+    if id not in TASKS:
+        return 404
+    TASKS[id] = description
+    return format(id)
 
 
 def delete(request, id):
+    if id not in TASKS:
+        return 404
     del TASKS[id]
 ```
 These functions, found in `tutorial/task.py`, form a `REST`
@@ -101,10 +118,13 @@ SERVER tasks 12345
   ROUTE /tasks$
     GET tutorial.task.read
     POST tutorial.task.create
+        CONTENT description
 
-  ROUTE /tasks/(\d*)$
+  ROUTE /tasks/(?P<id>\d*)$
+    TYPE int
     GET tutorial.task.read
     PUT tutorial.task.update
+        CONTENT description
     DELETE tutorial.task.delete
 ```
 
@@ -112,12 +132,20 @@ This `micro` file,
 in `tutorial/task.micro`, describes
 a `REST` service listening on port `12345` for incoming `HTTP` requests
 that have `/tasks` as a resource.
+
 Some of the routes include a task id, depicted by the regex `(\d*)`,
 matching a numeric value.
 The parenthesis around the value define an argument to be passed
 to the `REST` handler function.
-The `read`, `update` and `delete` functions each accept another
-argument in addition to `request`.
+The `?P<id>` part of the regex allows the group to have a name,
+which is used here to note the purpose of the field.
+the `TYPE int` directive causes the `id` group value to be
+coerced to an `int`.
+
+The `create` and `update` functions each accept another
+argument in addition to `request`, whose value is pulled from
+the `query string`, `form` or `json` body of the request. The
+`CONTENT` directive specifies this additional parameter.
 
 Let's see this in action.
 (`PYTHONPATH` includes `spindrift`, `ergaleia` and `fsm`).
@@ -133,33 +161,33 @@ In another terminal, use `curl` to talk to the server.
 ```
 > # list all tasks
 > curl localhost:12345/tasks
-{}
+[]
 
 > # add a task
 > curl localhost:12345/tasks -d description='make coffee'
-{"id": "1", "description": "make coffee"}
+{"id": 1, "description": "make coffee"}
 
 > # list all tasks again
 > curl localhost:12345/tasks
-{"1": "make coffee"}
+[{"id": 1: "description": "make coffee"}]
 
 > # add another task
 > curl localhost:12345/tasks -d description='buy donut'
 {"id": "2", "description": "buy donut"}
 
 > curl localhost:12345/tasks
-{"1": "make coffee", "2": "buy coffee"}
+[{"id": 1: "description": "make coffee", "id": 2: "description": "buy coffee"}]
 
 > # change a task
 > curl localhost:12345/tasks/1 -XPUT -d description='buy coffee'
-{"id": "2", "description": "buy coffee"}
+{"id": 1, "description": "buy coffee"}
 
 > curl localhost:12345/tasks
-{"1": "buy coffee", "2": "buy donut"}
+[{"id": 1: "description": "buy coffee", "id": 2: "description": "buy donut"}]
 
 > # delete a task
 > curl localhost:12345/tasks/2 -XDELETE
 
 > curl localhost:12345/tasks
-{"1": "buy coffee"}
+[{"id": 1: "description": "buy coffee"}]
 ```

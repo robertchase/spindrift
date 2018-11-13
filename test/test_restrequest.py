@@ -103,6 +103,25 @@ def test_call_none_404():
     assert r.handler._respond_code == 404
 
 
+def _call_task_cursor(task):
+    task.callback(0, task.cursor)
+
+
+def test_call_task_cursor():
+    def on_success(request, result):
+        request._cursor = result
+
+    r = new_request()
+    r.cursor = None
+    r._cursor = None
+    r.call(_call_task_cursor, on_success=on_success)
+    assert r._cursor is None
+
+    r.cursor = 'cursor'
+    r.call(_call_task_cursor, on_success=on_success)
+    assert r._cursor == 'cursor'
+
+
 def _call_task(task, value):
     task.callback(0, value)
 
@@ -126,6 +145,10 @@ def test_call_cursor():
         request._cursor = result
 
     r = new_request()
+    r.cursor = None
+    r.call(_call_cursor, on_success=on_success)
+    assert r._cursor is None
+
     r.cursor = 'cursor'
     r.call(_call_cursor, on_success=on_success)
     assert r._cursor == 'cursor'

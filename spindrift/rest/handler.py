@@ -37,10 +37,11 @@ class RESTHandler(http.HTTPHandler):
         return mapper.match(resource, method)
 
     def on_http_status(self, method, resource):
-        rest_handler, groups = self._map(resource, method)
-        if rest_handler:
-            self._rest_handler = rest_handler
-            self._groups = groups
+        rest_match = self._map(resource, method)
+        if rest_match:
+            self._rest_handler = rest_match.handler
+            self._groups = rest_match.groups
+            self._coercer = rest_match.coercer
         else:
             self.on_rest_no_match()
             self._rest_send(404, 'Not Found', close=True)
@@ -50,7 +51,14 @@ class RESTHandler(http.HTTPHandler):
             self.on_rest_data(self._groups)
             request = rest_request.RESTRequest(self)
             request = self.on_rest_request(request)
-            result = self._rest_handler(request, *self._groups)
+            try:
+                args, kwargs = self._coercer(
+                    self._groups, request.json
+                )
+            except Exception as e:
+                log.warning(e)
+                return request.respond(400)
+            result = self._rest_handler(request, *args, **kwargs)
             if request.is_done:  # already responded
                 pass
             elif not request.is_delayed:
