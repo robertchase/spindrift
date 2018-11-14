@@ -6,8 +6,8 @@
 #     TEST_GIT - location of git directory where spindrift is cloned ($HOME/git)
 #     TEST_NET - name of docker network shared by mysql container (test)
 #     TEST_MYSQL_HOST - name of mysql container (mysql)
-#     TEST_IMAGE - name of spindrift docker image (bob/spindrift-test)
-#                  see docker/images/build.sh
+#     TEST_IMAGE - name of spindrift docker image (spindrift)
+#                  see docker/spindrift.sh
 #
 # assumes: 1. docker is running
 #          2. mysql container is running
@@ -21,9 +21,9 @@
 TEST_GIT=${TEST_GIT:-$HOME/git}
 TEST_NET=${TEST_NET:-test}
 TEST_MYSQL_HOST=${TEST_MYSQL_HOST:-mysql}
-TEST_IMAGE=${TEST_IMAGE:-bob/spindrift-test}
+TEST_IMAGE=${TEST_IMAGE:-spindrift}
 
 CMD=${*:-test test_db}
 GIT=/opt/git
 
-docker run --rm -v=$TEST_GIT:$GIT -w $GIT/spindrift --net $TEST_NET -e MYSQL_HOST=$TEST_MYSQL_HOST -e PYTHONPATH=$GIT/ergaleia:$GIT/fsm:. $TEST_IMAGE pytest $CMD
+docker run --rm -v=$TEST_GIT:$GIT -w $GIT/spindrift --net $TEST_NET -e MYSQL_HOST=$TEST_MYSQL_HOST -e PYTHONPATH=. $TEST_IMAGE pytest $CMD
