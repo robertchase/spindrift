@@ -24,11 +24,6 @@ class Query(object):
         self._order = order
         return self
 
-    def by_pk(self):
-        cls = self._classes[0]
-        self.where('`{}`.`{}`=%s'.format(cls.TABLENAME, cls._fields.pk))
-        return self
-
     def join(self, table, field, join_table, join_field, outer=None):
         """Add a table to the query (equi join)
 

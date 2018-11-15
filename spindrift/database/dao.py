@@ -109,7 +109,8 @@ class DAO():
                 )
             raise Exception('cursor not specified')
 
-        cls.query().by_pk().execute(
+        where = '`{}`.`{}`=%s'.format(cls.TABLENAME, cls._fields.pk)
+        cls.query().where(where).execute(
             callback, key, one=True, cursor=cursor
         )
 
@@ -121,13 +122,13 @@ class DAO():
 
     def save(self, callback, insert=False, cursor=None,
              start_transaction=False, commit=False):
-        """Save database object by id
+        """Save database object by primary key
 
            Parameters:
                callback - callback_fn(rc, result)
                insert - bool
-                        if True save object with non-None id with INSERT
-                        instead of UPDATE
+                        if True save object with non-None primary key with
+                        INSERT instead of UPDATE
                cursor - database cursor
                start_transaction - start transaction before performing save
                                    (See Note 3)
@@ -194,10 +195,10 @@ class DAO():
                 '`' + self.TABLENAME + '`',
                 'SET',
                 ','.join(['`{}`=%s'.format(fld.column) for fld in fields]),
-                'WHERE id=%s',
+                'WHERE `{}`=%s'.format(pk),
             ))
             args = [getattr(self, fld.name) for fld in fields]
-            args.append(self.id)
+            args.append(getattr(self, pk))
 
         def on_save(rc, result):
             if rc != 0:
@@ -237,8 +238,9 @@ class DAO():
                self
         """
         if id is not None:
-            self.id = id
-        self.save(callback, insert=True, cursor=cursor)
+            pk = self._fields.pk
+            setattr(self, pk, id)
+        return self.save(callback, insert=True, cursor=cursor)
 
     def delete(self, callback, cursor=None):
         """Delete matching row from database by primary key.

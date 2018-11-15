@@ -22,3 +22,17 @@ CREATE TABLE IF NOT EXISTS `child` (
     PRIMARY KEY(`id`),
 	FOREIGN KEY(`parent_id`) REFERENCES `parent`(`id`)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `odd_keys_root` (
+    `my_key` INT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(100) NOT NULL,
+    PRIMARY KEY(`my_key`)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `odd_keys_node` (
+    `and_my_key` INT NOT NULL AUTO_INCREMENT,
+    `odd_keys_root_id` INT NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    PRIMARY KEY(`and_my_key`),
+	FOREIGN KEY(`odd_keys_root_id`) REFERENCES `odd_keys_root`(`my_key`)
+) ENGINE=InnoDB;
