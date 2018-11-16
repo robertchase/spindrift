@@ -3,6 +3,7 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
+from spindrift.database.field import Foreign
 
 
 class Query(object):
@@ -58,6 +59,18 @@ class Query(object):
             join_table._fields[join_field].fullname,
         )
 
+        return self
+
+    def add(self, table, field=None, table2=None, field2=None, outer=None):
+        if field is None:
+            foreigns = {n: v for n, v in table._fields.lookup.items() if
+                        isinstance(v, Foreign)}
+            if len(foreigns) == 0:
+                raise TypeError(
+                    "'{}' has no foreign keys, field must be specified".format(
+                        table.__name__
+                    )
+                )
         return self
 
     def _build(self, one, limit, offset, for_update):
