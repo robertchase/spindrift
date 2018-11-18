@@ -37,11 +37,10 @@ def test_count_all(data, sync):
 
 
 def test_join(data, sync):
-    result = models.Root.query().join(
-        models.Node, 'parent_id', models.Root, 'id').execute(sync)
+    result = models.Root.query().join(models.Node).execute(sync)
     assert result
     assert len(result) == 2
-    names = set([p.child.name for p in result])
+    names = set([r.node.name for r in result])
     assert set((models.NODE1, models.NODE2)) == names
 
 

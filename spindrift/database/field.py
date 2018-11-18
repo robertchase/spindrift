@@ -181,6 +181,7 @@ class FieldCache:
             if foreign:
                 if not isinstance(foreign, Foreign):
                     foreign = Foreign(foreign)
+                    attr.foreign = foreign
                 foreign.field_name = nam
                 self.foreign[foreign.attribute_name] = foreign
                 self.lookup[foreign.attribute_name] = foreign

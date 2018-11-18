@@ -70,7 +70,3 @@ def test_init_invalid(Structure):
 
 def test_default(data):
     assert data.random == 'foo'
-
-
-def test_query(Structure):
-    print(Structure.query().join(Structure, 'age', Structure, 'the_key')._build(False, False, False, False))

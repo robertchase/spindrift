@@ -75,13 +75,11 @@ def test_join(data, db):
     def on_join(rc, result):
         assert rc == 0
         assert len(result) == 2
-        names = set([p.child.name for p in result])
+        names = set([r.node.name for r in result])
         assert set((models.NODE1, models.NODE2)) == names
         db.is_done = True
 
-    models.Root.query().join(
-        models.Node, 'parent_id', models.Root, 'id').execute(
-            on_join, cursor=db.cursor)
+    models.Root.query().join(models.Node).execute(on_join, cursor=db.cursor)
     db.run()
 
 
