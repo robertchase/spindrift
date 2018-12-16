@@ -16,14 +16,14 @@ def test_table_only():
     table, field, table2, field2 = Query(models.Root)._normalize(
         models.Node, None, None, None)
     assert field == 'parent_id'
-    assert table2 == models.Root
+    assert table2.cls == models.Root
     assert field2 == 'id'
 
 
 def test_table_and_field_only():
     table, field, table2, field2 = Query(models.Root)._normalize(
         models.Node, 'parent_id', None, None)
-    assert table2 == models.Root
+    assert table2.cls == models.Root
     assert field2 == 'id'
 
 

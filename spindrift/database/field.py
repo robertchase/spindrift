@@ -52,11 +52,10 @@ class Field:
     def fullname(self):
         return '`{}`.`{}`'.format(self.dao.TABLENAME, self.name)
 
-    @property
-    def as_select(self):
+    def as_select(self, table):
         if self.expression:
-            return '{} AS {}'.format(self.expression, self.name)
-        table = self.dao.TABLENAME
+            exp = self.expression.format(table=table)
+            return '{} AS `{}`'.format(exp, self.name)
         if self.alias:
             return '`{}`.`{}` AS `{}`'.format(table, self.column, self.alias)
         else:

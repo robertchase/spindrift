@@ -5,17 +5,30 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 
 
+class QueryTable:
+
+    def __init__(self, cls, alias):
+        self.cls = cls
+        self.alias = alias
+        self.column_count = len(self.fields)
+
+    @property
+    def fields(self):
+        return self.cls._fields.db_read
+
+
 class Query(object):
 
     def __init__(self, table):
-        self._classes = [table]
-        self._aliases = [None]
-        self._columns = table._fields.db_read.copy()
-        self._count = [len(self._columns)]
+        self._tables = [QueryTable(table, table.TABLENAME)]
         self._join = '`' + table.TABLENAME + '`'
 
         self._where = None
         self._order = None
+
+    @property
+    def _classes(self):
+        return [table.cls for table in self._tables]
 
     def where(self, where=None):
         self._where = where
@@ -77,11 +90,7 @@ class Query(object):
         if alias is None:
             alias = table.__name__.lower()
 
-        self._classes.append(table)
-        self._aliases.append(alias)
-        flds = table._fields.db_read
-        self._columns.extend(flds)
-        self._count.append(len(flds))
+        self._tables.append(QueryTable(table, alias))
 
         if outer is None:
             join = ' JOIN '
@@ -92,10 +101,11 @@ class Query(object):
         else:
             raise ValueError("invalid outer join value: '{}'".format(outer))
 
-        self._join += '{} `{}` ON {} = {}'.format(
-            join, table.TABLENAME,
-            table._fields[field].fullname,
-            table2._fields[field2].fullname,
+        self._join += '{} `{}` AS `{}` ON `{}`.`{}` = `{}`.`{}`'.format(
+            join,
+            table.TABLENAME, alias,
+            alias, table._fields[field].name,
+            table2.alias, table2.cls._fields[field2].name,
         )
 
         return self
@@ -147,6 +157,7 @@ class Query(object):
             table2 = fld.foreign.cls
         if field2 is None:
             field2 = table2._fields.pk
+        table2 = [tbl for tbl in self._tables if tbl.cls == table2][0]
         return table, field, table2, field2
 
     def _build(self, one, limit, offset, for_update):
@@ -156,7 +167,11 @@ class Query(object):
             limit = 1
 
         stmt = 'SELECT '
-        stmt += ','.join(fld.as_select for fld in self._columns)
+        stmt += ','.join(
+            fld.as_select(table.alias)
+            for table in self._tables
+            for fld in table.fields
+        )
         stmt += ' FROM ' + self._join
         if self._where:
             stmt += ' WHERE ' + self._where
@@ -197,15 +212,15 @@ class Query(object):
             for rs in values:
                 tables = None
                 row = [t for t in zip(columns, rs)]
-                for c, alias, count in zip(self._classes, self._aliases,
-                                           self._count):
-                    val, row = row[:count], row[count:]
-                    o = c(**dict(val))
+                for table in self._tables:
+                    val = row[:table.column_count]
+                    o = table.cls(**dict(val))
                     if tables is None:
                         primary_table = o
                         o._tables = tables = {}
                     else:
-                        tables[alias] = o
+                        tables[table.alias] = o
+                    row = row[table.column_count:]
                 rows.append(primary_table)
 
             if one:
