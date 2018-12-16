@@ -147,10 +147,12 @@ class FieldCache:
             raise AttributeError("invalid Field name: '{}'".format(name))
         return fld
 
-    def parse(self, cls):
-        reserved = cls._callables()
-        fields = self.parse_fields(cls, reserved)
-        self.parse_children(cls, reserved)
+    @classmethod
+    def parse(cls, table):
+        self = cls()
+        reserved = table._callables()
+        fields = self.parse_fields(table, reserved)
+        self.parse_children(table, reserved)
         self.parse_pk(fields, reserved)
 
         self.db_read = [fld for fld in fields if fld.is_database]

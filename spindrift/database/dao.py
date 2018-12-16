@@ -17,7 +17,7 @@ class DAO():
         if not hasattr(cls, '_fields'):
             if cls.TABLENAME is None:
                 raise AttributeError('TABLENAME not defined')
-            cls._fields = FieldCache().parse(cls)
+            cls._fields = FieldCache.parse(cls)
 
     def __init__(self, **kwargs):
         kwargs = self._transform_foreign(kwargs)
