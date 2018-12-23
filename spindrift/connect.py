@@ -273,6 +273,10 @@ class ConnectHandler(HTTPHandler):
         )
 
     def on_data(self, data):
+
+        if self.context.is_trace:
+            log.debug('recv: %s', data)
+
         self.timer.re_start()
         super(ConnectHandler, self).on_data(data)
 
@@ -304,7 +308,7 @@ class ConnectHandler(HTTPHandler):
     def on_http_data(self):
 
         if self.context.is_trace:
-            log.debug('recv: %s', self.http_message)
+            log.debug('full-recv: %s', self.http_message)
 
         try:
             evaluate = self.context.evaluate or self.__class__.evaluate
