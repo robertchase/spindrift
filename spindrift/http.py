@@ -177,7 +177,7 @@ class HTTPHandler(Handler):
                 '%s:%s' % self.peer_address
             headers['Host'] = host
 
-        headers = '%s\n\r%s\n\r\n' % (
+        headers = '%s\r\n%s\r\n\r\n' % (
             status,
             '\r\n'.join(['%s: %s' % (k, v) for k, v in headers.items()]),
         )
@@ -260,21 +260,27 @@ class HTTPHandler(Handler):
         if line is False or line is None:
             return False
         toks = line.split()
-        if len(toks) < 3:
+        if len(toks) < 2:
             return self._on_http_error('Invalid status line: too few tokens')
 
         # HTTP/1.[0|1] 200 OK
         if toks[0] in ('HTTP/1.0', 'HTTP/1.1'):
+            if len(toks) < 3:
+                self.http_status_message = ''
+            else:
+                self.http_status_message = ' '.join(toks[2:])
             try:
                 self.http_status_code = toks[1]
                 self.http_status_code = int(self.http_status_code)
             except ValueError:
                 return self._on_http_error(
                     'Invalid status line: non-integer status code')
-            self.http_status_message = ' '.join(toks[2:])
 
         # GET /resource HTTP/1.[0|1]
         else:
+            if len(toks) < 3:
+                return self._on_http_error(
+                    'Invalid status line: too few tokens')
             if toks[2] not in ('HTTP/1.0', 'HTTP/1.1'):
                 return self._on_http_error(
                     'Invalid status line: not HTTP/1.0 or HTTP/1.1')
