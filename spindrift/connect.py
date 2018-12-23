@@ -202,7 +202,8 @@ class ConnectHandler(HTTPHandler):
         if context.query:
             context.path = context.path + '?' + context.query
 
-        if isinstance(context.body, (dict, list, tuple, float, bool, int)):
+        if context.content_type != 'form' and \
+                isinstance(context.body, (dict, list, tuple, float, bool, int)):
             try:
                 json.dumps(context.body)
             except Exception:
