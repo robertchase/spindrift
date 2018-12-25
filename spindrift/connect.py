@@ -9,31 +9,18 @@ import time
 import urllib.parse as urllib
 
 from spindrift.http import HTTPHandler
+from spindrift.network import Network
+from spindrift.timer import Timer
 
 
 import logging
 log = logging.getLogger(__name__)
 
 
-def connect(
-            network,
-            timer,
-            callback,
-            url,
-            query=None,
-            method='GET',
-            body=None,
-            headers=None,
-            is_json=True,
-            is_form=False,
-            timeout=5.0,
-            wrapper=None,
-            evaluate=None,
-            handler=None,
-            debug=False,
-            trace=False,
-            **kwargs
-        ):
+def connect(network, timer, callback, url, query=None, method='GET', body=None,
+            headers=None, is_json=True, is_form=False, timeout=5.0,
+            wrapper=None, evaluate=None, handler=None, debug=False,
+            trace=False, **kwargs):
     """ Make an async rest connection, executing callback on completion
 
         Parameters:
@@ -83,30 +70,34 @@ def connect(
                           evaluate, debug, trace, **kwargs)
 
 
-def connect_parsed(
-            network,
-            timer,
-            callback,
-            url,
-            host,
-            address,
-            port,
-            path,
-            query,
-            is_ssl,
-            method,
-            headers,
-            body,
-            is_json,
-            is_form,
-            timeout,
-            wrapper,
-            handler,
-            evaluate,
-            debug,
-            trace,
-            **kwargs
-        ):
+def connect_sync(*args, **kwargs):
+    """A sync version of connect which returns the result on completion
+
+       The parameters match those of the connect function, starting with
+       url; in other words, network, timer and callback are not specified.
+
+       This function will block until the operation is complete.
+    """
+    async = None
+
+    def cb(rc, result):
+        nonlocal async
+        if rc != 0:
+            raise Exception(result)
+        async = result
+
+    network = Network()
+    timer = Timer()
+    c = connect(network, timer, cb, *args, **kwargs)
+    run(network, timer, c)
+
+    return async
+
+
+def connect_parsed(network, timer, callback, url, host, address, port, path,
+                   query, is_ssl, method, headers, body, is_json, is_form,
+                   timeout, wrapper, handler, evaluate, debug, trace,
+                   **kwargs):
     c = ConnectContext(callback, timer, url, method, path, query, host,
                        headers, body, is_json, is_form, timeout, wrapper,
                        evaluate, debug, trace, kwargs)
@@ -116,26 +107,9 @@ def connect_parsed(
 
 class ConnectContext(object):
 
-    def __init__(
-                self,
-                callback,
-                timer,
-                url,
-                method,
-                path,
-                query,
-                host,
-                headers,
-                body,
-                is_json,
-                is_form,
-                timeout,
-                wrapper,
-                evaluate,
-                is_debug,
-                is_trace,
-                kwargs
-            ):
+    def __init__(self, callback, timer, url, method, path, query, host,
+                 headers, body, is_json, is_form, timeout, wrapper, evaluate,
+                 is_debug, is_trace, kwargs):
         self.callback = callback
         self.timer = timer
         self.url = url
@@ -156,7 +130,7 @@ class ConnectContext(object):
 
 
 class ConnectHandler(HTTPHandler):
-    """ Manage outgoing http request as defined by context
+    """ Manage http request and response as defined by context
     """
 
     def on_init(self):
