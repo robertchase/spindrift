@@ -3,6 +3,7 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
+from ergaleia.import_by_path import import_by_path
 
 
 class QueryTable:
@@ -85,6 +86,9 @@ class Query(object):
                3. If a foreign key cannot be used to identify the DAO being
                   joined, then 'table2' and 'field2' must be specified.
         """
+        table = import_by_path(table)
+        if table2:
+            table2 = import_by_path(table2)
         table, field, table2, field2 = self._normalize(
             table, field, table2, field2)
         if alias is None:

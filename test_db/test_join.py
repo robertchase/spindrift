@@ -61,6 +61,15 @@ def test_root_node(data, sync):
     assert isinstance(n, models.Node)
 
 
+def test_root_node_path(data, sync):
+    result = models.Root.query().join('test_db.models.Node').execute(sync)
+    assert result
+    assert len(result) == 2
+    r = result[0]
+    n = r.node
+    assert isinstance(n, models.Node)
+
+
 def test_alias(data, sync):
     result = models.Root.query().join(models.Node, alias='akk').execute(sync)
     assert result
