@@ -28,10 +28,10 @@ class DAO():
         self._cache_field_values()
 
     def __repr__(self):
-        return '<{}>:{}'.format(
-            self.__class__.__name__,
-            {nam: getattr(self, nam) for nam in self._fields.all_fields},
-        )
+        flds = {nam: getattr(self, nam) for nam in self._fields.all_fields}
+        flds.update({nam: val
+                    for nam, val in self.__dict__.get('_tables', {}).items()})
+        return '<{}>:{}'.format(self.__class__.__name__, flds)
 
     def __getattr__(self, name):
         lookup = self._fields.lookup.get(name)
@@ -188,6 +188,7 @@ class DAO():
             new = False
             fields = self._fields_to_update
             if fields is None:
+                cursor.statement = None
                 callback(0, self)
                 return
             stmt = ' '.join((

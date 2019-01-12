@@ -132,6 +132,46 @@ TypeError: 'name' cannot be None
 <Root>:{'color': None, 'id': 1, 'name': '27'}
 ```
 
+## Updating a DAO instance
+
+Changes to an instance are not reflected in the database until you do a `save`:
+
+```
+# start with a fresh Root
+>>> root = Root(name='test').save()
+>>> root
+<Root>:{'color': None, 'id': 10, 'name': 'test'}
+
+# make a change
+root.color = 'blue'
+
+# check the database (color is still None)
+Root.load(root.id)
+<Root>:{'color': None, 'id': 10, 'name': 'test'}
+
+# save root
+>>> root.save(cursor)
+<Root>:{'color': 'blue', 'id': 10, 'name': 'test'}
+
+# notice that "color" is the only column that changed
+# the DAO only updates things that have changed
+>>> cursor.statement
+"UPDATE  `root` SET `color`='blue' WHERE `id`=10"
+```
+
+If there are no changes to the instance, no database interaction occurs:
+
+```
+# save again
+>>> root.save(cursor)
+<Root>:{'color': 'blue', 'id': 10, 'name': 'test'}
+
+# nothing happened
+>>> cursor.statement == None
+True
+
+```
+
 ## List, count and delete
 A DAO has a few helper methods:
 ```
@@ -197,3 +237,64 @@ class Node(DAO):
     root_id = Field(int, foreign=Root)
     name = Field(str)
 ```
+
+#### Add some data
+
+```
+>>> root = Root(name='one').save(cursor)
+>>> root
+<Root>:{'color': None, 'id': 1, 'name': 'one'}
+
+# the root kwarg automatically resolves to root_id
+>>> Node(name='one', root=root).save(cursor)
+<Node>:{'id': 1, 'name': 'one', 'root_id': 1}
+>>> Node(name='two', root=root).save(cursor)
+<Node>:{'id': 2, 'name': 'two', 'root_id': 1}
+```
+
+#### Perform a simple join
+```
+>>> Root.query().join(Node).execute(cursor)
+[<Root>:{'color': None, 'id': 1, 'name': 'test', 'node': <Node>:{'id': 1, 'name': 'one', 'root_id': 1}}, <Root>:{'color': None, 'id': 1, 'name': 'test', 'node': <Node>:{'id': 2, 'name': 'two', 'root_id': 1}}]
+```
+
+Two copies of the `Root` record are returned, one for each joined `Node`.
+A `Node` is added to each `Root` record, and can be accessed by key (ie, `node`).
+
+```
+>>> Root.query().join(Node).execute(cursor)[0].node
+<Node>:{'id': 1, 'name': 'one', 'root_id': 1}
+```
+
+##### what happened:
+
+The `join` method used the `foreign key` in `Node` to join the two tables,
+as can be seen in the underlying query:
+
+```
+>>> cursor.statement
+'SELECT `root`.`color`,`root`.`id`,`root`.`name`,`node`.`id`,`node`.`name`,`node`.`root_id`,`foo`.`id`,`foo`.`name`,`foo`.`root_id` FROM `root` JOIN  `node` AS `node` ON `node`.`root_id` = `root`.`id`
+```
+
+If a `foreign key` relationship is not available, or not desired,
+the `join` method accepts additional parameters to specify tables and columns
+to use in the operation.
+
+#### DAO independence
+
+Each `DAO`
+is independently updated.
+In other words,
+when a `save` or `delete` is applied to a `Root`
+in the example query result above,
+the action will
+not be passed to the contained `Node`.
+
+Each `DAO` instance is unaware of the other `DAO` instances.
+In other words, changes to one `DAO` instance will not change another,
+even if the `table` and `primary key` are the same; as well,
+changes to the database will not be reflected in an already created `DAO` instance.
+
+The `DAO` is a way to move data between the database and python.
+No relational integrity or transaction state is maintained in python.
+No idea of "dirty" or "stale" objects is enforced.
