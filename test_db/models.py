@@ -30,7 +30,7 @@ class Node(DAO):
 
     @classmethod
     def by_name(cls, callback, name, cursor=None):
-        return cls.query().where('name=%s').execute(
+        return cls.query.where('name=%s').execute(
             callback, name, one=True, cursor=cursor
         )
 

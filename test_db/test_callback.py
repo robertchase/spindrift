@@ -79,7 +79,7 @@ def test_join(data, db):
         assert set((models.NODE1, models.NODE2)) == names
         db.is_done = True
 
-    models.Root.query().join(models.Node).execute(on_join, cursor=db.cursor)
+    models.Root.query.join(models.Node).execute(on_join, cursor=db.cursor)
     db.run()
 
 
@@ -96,7 +96,7 @@ def test_children(data, db):
         assert rc == 0
         result.nodes(on_children, cursor=db.cursor)
 
-    models.Root.query().execute(on_parent, one=True, cursor=db.cursor)
+    models.Root.query.execute(on_parent, one=True, cursor=db.cursor)
     db.run()
 
 
@@ -111,5 +111,5 @@ def test_foreign(data, db):
         assert rc == 0
         result.root(on_parent, cursor=db.cursor)
 
-    models.Node.query().execute(on_child, one=True, cursor=db.cursor)
+    models.Node.query.execute(on_child, one=True, cursor=db.cursor)
     db.run()

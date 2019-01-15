@@ -11,6 +11,9 @@ import spindrift.mysql.util as util
 import spindrift.mysql.packet as packet
 
 
+TRANSACTIONS = ('START TRANSACTION', 'COMMIT', 'ROLLBACK')
+
+
 class Protocol(object):
 
     def __init__(self, connection):
@@ -33,6 +36,7 @@ class Protocol(object):
             ready=self.act_ready,
             transaction=self.act_transaction,
             transaction_end=self.act_transaction_end,
+            transaction_done=self.act_transaction_done,
 
             dump_packet=self.dump_packet,
         )
@@ -48,9 +52,6 @@ class Protocol(object):
         self._callback = None
         self._query = None
         self._query_status = None
-
-        self._transaction_start = False
-        self._transaction_end = None
 
     @property
     def context(self):
@@ -108,15 +109,12 @@ class Protocol(object):
         self._callback = callback
         self._cls = cls
         self._query = sql
-        if not self.context.autocommit:
-            self._transaction_start = start_transaction
-            self._transaction_end = end_transaction
         if not self.fsm.handle('query'):
             callback(1, 'cursor unable to execute query')
 
     def act_query(self):
         if self._callback and self._query:
-            if self._transaction_start:
+            if self._query in TRANSACTIONS:
                 return 'transaction'
             self.connection.on_query_start()
             self._execute_command(COMMAND.COM_QUERY, self._query)
@@ -144,19 +142,20 @@ class Protocol(object):
                 break
 
     def act_transaction(self):
-        self._transaction_start = False
-        self.connection.on_transaction_start()
-        self._execute_command(COMMAND.COM_QUERY, 'START TRANSACTION')
+        if self._query == 'START TRANSACTION':
+            self.connection.on_transaction_start()
+        else:
+            self.connection.on_transaction_end(self._query)
+        self._execute_command(COMMAND.COM_QUERY, self._query)
+        self._query = None
+
+    def act_transaction_done(self):
+        self._done(0, None)
 
     def act_transaction_end(self):
         self._query_status = self._ok
         self.connection.on_query_end()
-        if self._transaction_end:
-            self.connection.on_transaction_end(self._transaction_end)
-            self._execute_command(COMMAND.COM_QUERY, self._transaction_end)
-            self._transaction_end = None
-        else:
-            return 'ok'
+        return 'ok'
 
     def act_read_descriptor_packet(self):
         f = packet.FieldDescriptorPacket(self.packet.data, self.encoding)
@@ -270,7 +269,6 @@ class Protocol(object):
 
     def act_check_query_response(self):
         if self.packet.is_ok:
-            print(777)
             pass
         else:
             self.field_count = self.packet.read_length_encoded_integer()

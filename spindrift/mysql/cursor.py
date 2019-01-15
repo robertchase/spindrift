@@ -11,9 +11,6 @@ class Cursor(object):
         self.protocol = protocol
 
         self._transaction_depth = 0
-        self._start_transaction = False
-        self._transaction_commit = False
-        self._transaction_rollback = False
 
         self.is_running = False
 
@@ -34,31 +31,48 @@ class Cursor(object):
     def commit_enabled(self):
         return self.protocol.context.commit_enabled
 
-    def start_transaction(self):
-        self._transaction_depth += 1
-        if self._transaction_depth == 1:
-            self._start_transaction = True
-        return self
-
-    def commit(self):
+    def _transaction(self, callback, command):
         if not self.commit_enabled:
-            return self
+            return callback(0, None)
+        self.execute(callback, command)
+
+    def start_transaction(self, callback=None, **kwargs):
+        if not callback:
+            if hasattr(self, '_run_sync'):
+                return self._run_sync(
+                    self.start_transaction, cursor=self,
+                )
+            raise Exception('callback not specified')
+        self._transaction_depth += 1
+        if self._transaction_depth != 1:
+            return callback(0, None)
+        self._transaction(callback, 'START TRANSACTION')
+
+    def commit(self, callback=None, **kwargs):
+        if not callback:
+            if hasattr(self, '_run_sync'):
+                return self._run_sync(
+                    self.commit, cursor=self,
+                )
+            raise Exception('callback not specified')
         if self._transaction_depth == 0:
-            return self
+            return callback(0, None)
         self._transaction_depth -= 1
-        if self._transaction_depth == 0:
-            self._transaction_commit = True
-        return self
+        if self._transaction_depth != 0:
+            return callback(0, None)
+        self._transaction(callback, 'COMMIT')
 
-    def rollback(self):
+    def rollback(self, callback=None, **kwargs):
+        if not callback:
+            if hasattr(self, '_run_sync'):
+                return self._run_sync(
+                    self.rollback, cursor=self,
+                )
+            raise Exception('callback not specified')
         if self._transaction_depth == 0:
-            return
+            return callback(0, None)
         self._transaction_depth = 0
-        self._transaction_rollback = True
-        return self
-
-    def transaction(self):
-        return self.start_transaction().commit()
+        self._transaction(callback, 'ROLLBACK')
 
     @property
     def lastrowid(self):
@@ -77,40 +91,16 @@ class Cursor(object):
         else:
             return self.protocol.escape(args)
 
-    def execute(self, callback, query, args=None,
-                start_transaction=False, commit=False, cls=None):
+    def execute(self, callback, query, args=None, cls=None):
         """ Execute a query """
         self.statement_before = query
         if args is not None:
             query = query % self._escape_args(args)
         self.statement = query
 
-        if start_transaction:
-            self.start_transaction()
-        if commit:
-            self.commit()
-
-        if self._start_transaction:
-            self._start_transaction = False
-            start = True
-        else:
-            start = False
-
-        if self._transaction_commit:
-            self._transaction_commit = False
-            end = 'COMMIT'
-        elif self._transaction_rollback:
-            self._transaction_rollback = False
-            end = 'ROLLBACK'
-        else:
-            end = None
-
         def _callback(rc, result):
             self.is_running = False
             callback(rc, result)
 
         self.is_running = True
-        self.protocol.query(
-            _callback, query, cls=cls,
-            start_transaction=start, end_transaction=end
-        )
+        self.protocol.query(_callback, query, cls=cls)

@@ -9,6 +9,22 @@ The `spindrift` database interface has nowhere near the complexity of a project 
 It is primarily meant to facilitate the loading, modifying and saving of database rows,
 which is a common use case for `REST` services.
 
+###### Implications
+
+1. Each `DAO` instance is unaware of other `DAO` instances.
+In other words, changes to one `DAO` instance will not be reflected in another,
+even if the `table` and `primary key` are shared.
+
+
+2. A `DAO` is not kept in sync with changes to the database.
+In other words,
+updates and deletes in the database will not be reflected in an already created `DAO` instance.
+
+3. No relational integrity or transaction state is maintained in python.
+No idea of "dirty" or "stale" objects is enforced.
+SQL transactions can be explicitly started and ended in order to group operations,
+but all of the work is done by the database.
+
 #### Opinion
 
 Most `SQL` stuff is *best expressed* using `SQL`.
@@ -54,7 +70,7 @@ cursor = db.cursor
 ```
 *Your database connection
 might require different parameters.* The `commit` flag setting prevents changes from
-being commited, which is handy for testing or demonstration.
+being committed, which is handy for testing or demonstration.
 The `sync` flag setting enables synchronous interaction with the database, which
 is handy for testing or CLI tools.
 
@@ -254,7 +270,7 @@ class Node(DAO):
 
 #### Perform a simple join
 ```
->>> Root.query().join(Node).execute(cursor)
+>>> Root.query.join(Node).execute(cursor)
 [<Root>:{'color': None, 'id': 1, 'name': 'test', 'node': <Node>:{'id': 1, 'name': 'one', 'root_id': 1}}, <Root>:{'color': None, 'id': 1, 'name': 'test', 'node': <Node>:{'id': 2, 'name': 'two', 'root_id': 1}}]
 ```
 
@@ -262,7 +278,7 @@ Two copies of the `Root` record are returned, one for each joined `Node`.
 A `Node` is added to each `Root` record, and can be accessed by key (ie, `node`).
 
 ```
->>> Root.query().join(Node).execute(cursor)[0].node
+>>> Root.query.join(Node).execute(cursor)[0].node
 <Node>:{'id': 1, 'name': 'one', 'root_id': 1}
 ```
 
@@ -279,22 +295,3 @@ as can be seen in the underlying query:
 If a `foreign key` relationship is not available, or not desired,
 the `join` method accepts additional parameters to specify tables and columns
 to use in the operation.
-
-#### DAO independence
-
-Each `DAO`
-is independently updated.
-In other words,
-when a `save` or `delete` is applied to a `Root`
-in the example query result above,
-the action will
-not be passed to the contained `Node`.
-
-Each `DAO` instance is unaware of the other `DAO` instances.
-In other words, changes to one `DAO` instance will not change another,
-even if the `table` and `primary key` are the same; as well,
-changes to the database will not be reflected in an already created `DAO` instance.
-
-The `DAO` is a way to move data between the database and python.
-No relational integrity or transaction state is maintained in python.
-No idea of "dirty" or "stale" objects is enforced.

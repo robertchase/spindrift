@@ -29,31 +29,31 @@ def test_table_and_field_only():
 
 def test_non_dao_table():
     with pytest.raises(TypeError):
-        models.Root.query()._normalize('foo', None, None, None)
+        models.Root.query._normalize('foo', None, None, None)
 
 
 def test_no_foreign_keys():
     with pytest.raises(TypeError):
-        models.Root.query()._normalize(models.Root, None, None, None)
+        models.Root.query._normalize(models.Root, None, None, None)
 
 
 def test_no_matching_foreign_keys():
     with pytest.raises(TypeError):
-        models.Root.query()._normalize(models.OddKeysNode, None, None, None)
+        models.Root.query._normalize(models.OddKeysNode, None, None, None)
 
 
 def test_missing_non_foreign_table2(data, sync):
     with pytest.raises(ValueError):
-        models.Root.query()._normalize(models.Node, 'name', None, None)
+        models.Root.query._normalize(models.Node, 'name', None, None)
 
 
 def test_non_dao_table_with_field(data, sync):
     with pytest.raises(TypeError):
-        models.Root.query()._normalize('blah', 'name', None, None)
+        models.Root.query._normalize('blah', 'name', None, None)
 
 
 def test_root_node(data, sync):
-    result = models.Root.query().join(models.Node).execute(sync)
+    result = models.Root.query.join(models.Node).execute(sync)
     assert result
     assert len(result) == 2
     r = result[0]
@@ -62,7 +62,7 @@ def test_root_node(data, sync):
 
 
 def test_root_node_path(data, sync):
-    result = models.Root.query().join('test_db.models.Node').execute(sync)
+    result = models.Root.query.join('test_db.models.Node').execute(sync)
     assert result
     assert len(result) == 2
     r = result[0]
@@ -71,7 +71,7 @@ def test_root_node_path(data, sync):
 
 
 def test_alias(data, sync):
-    result = models.Root.query().join(models.Node, alias='akk').execute(sync)
+    result = models.Root.query.join(models.Node, alias='akk').execute(sync)
     assert result
     assert len(result) == 2
     r = result[0]

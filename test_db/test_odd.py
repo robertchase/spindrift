@@ -51,7 +51,7 @@ def test_update(data, sync):
 
 
 def test_children(data, sync):
-    result = models.OddKeysRoot.query().execute(sync, one=True)
+    result = models.OddKeysRoot.query.execute(sync, one=True)
     assert result
     child = result.odd_nodes(sync)
     assert child
@@ -61,7 +61,7 @@ def test_children(data, sync):
 
 
 def test_foreign(data, sync):
-    result = models.OddKeysNode.query().execute(sync, one=True)
+    result = models.OddKeysNode.query.execute(sync, one=True)
     assert result
     parent = result.oddkeysroot(sync)
     assert parent

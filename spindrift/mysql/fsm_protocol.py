@@ -16,6 +16,7 @@ from fsm.FSM import STATE, EVENT, FSM
 # read_descriptor_packet
 # ready
 # transaction
+# transaction_done
 # transaction_end
 def create(**actions):
   S_init=STATE('init')
@@ -36,7 +37,7 @@ def create(**actions):
   S_autocommit.set_events([EVENT('ok',[], S_isolation),EVENT('close',[], S_close),])
   S_isolation.set_events([EVENT('ok',[actions['ready']], S_connected),EVENT('close',[], S_close),])
   S_connected.set_events([EVENT('query',[actions['query']]),EVENT('transaction',[], S_transaction),EVENT('sent',[], S_query),EVENT('close',[], S_close),])
-  S_transaction.set_events([EVENT('ok',[actions['query']]),EVENT('sent',[], S_query),EVENT('close',[], S_close),])
+  S_transaction.set_events([EVENT('ok',[actions['transaction_done']], S_connected),EVENT('query',[]),EVENT('close',[], S_close),])
   S_query.set_events([EVENT('packet',[actions['check_query_response']]),EVENT('ok',[actions['transaction_end']], S_transaction_end),EVENT('done',[], S_query_descriptors),EVENT('close',[], S_close),])
   S_transaction_end.set_events([EVENT('ok',[actions['query_complete']]),EVENT('query',[]),EVENT('done',[], S_connected),EVENT('close',[], S_close),])
   S_query_descriptors.set_events([EVENT('packet',[actions['read_descriptor_packet']]),EVENT('eof',[], S_query_fields),EVENT('close',[], S_close),])

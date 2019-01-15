@@ -37,7 +37,7 @@ def test_count_all(data, sync):
 
 
 def test_join(data, sync):
-    result = models.Root.query().join(models.Node).execute(sync)
+    result = models.Root.query.join(models.Node).execute(sync)
     assert result
     assert len(result) == 2
     names = set([r.node.name for r in result])
@@ -45,7 +45,7 @@ def test_join(data, sync):
 
 
 def test_children(data, sync):
-    result = models.Root.query().execute(sync, one=True)
+    result = models.Root.query.execute(sync, one=True)
     assert result
     child = result.nodes(sync)
     assert child
@@ -55,7 +55,7 @@ def test_children(data, sync):
 
 
 def test_foreign(data, sync):
-    result = models.Node.query().execute(sync, one=True)
+    result = models.Node.query.execute(sync, one=True)
     assert result
     parent = result.root(sync)
     assert parent

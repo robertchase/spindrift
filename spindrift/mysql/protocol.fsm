@@ -42,9 +42,9 @@ STATE connected
 
 STATE transaction
     ENTER transaction
-    EVENT ok
-        ACTION query
-    EVENT sent query
+    EVENT ok connected
+        ACTION transaction_done
+    EVENT query
     EVENT close close
 
 STATE query

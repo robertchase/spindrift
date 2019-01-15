@@ -110,18 +110,26 @@ class DAO():
             raise Exception('cursor not specified')
 
         where = '`{}`.`{}`=%s'.format(cls.TABLENAME, cls._fields.pk)
-        cls.query().where(where).execute(
-            callback, key, one=True, cursor=cursor
-        )
+        cls.query.where(where).execute(callback, key, one=True, cursor=cursor)
 
-    @classmethod
+    class _classproperty(object):
+        """Hack for property-like access to query method
+
+           https://stackoverflow.com/questions/5189699/how-to-make-a-class-property
+        """
+        def __init__(self, fn):
+            self.fn = fn
+
+        def __get__(self, theinstance, theclass):
+            return self.fn(theclass)
+
+    @_classproperty
     def query(cls):
         """Create a query object for this DAO.
         """
         return Query(cls)
 
-    def save(self, callback, insert=False, cursor=None,
-             start_transaction=False, commit=False):
+    def save(self, callback, insert=False, cursor=None):
         """Save database object by primary key
 
            Parameters:
@@ -130,9 +138,6 @@ class DAO():
                         if True save object with non-None primary key with
                         INSERT instead of UPDATE
                cursor - database cursor
-               start_transaction - start transaction before performing save
-                                   (See Note 3)
-               commit - commit transaction after performing save (See Note 3)
 
            Callback result:
                self
@@ -145,17 +150,12 @@ class DAO():
 
                2. On UPDATE, only changed fields, if any, are SET.
 
-               3. If start_transaction and commit are not specified, then the
-                  save will be automatically wrapped in a transaction
-                  (start_transaction, save, commit).
-
-               4. This call will not change expression Fields.
+               3. This call will not change expression Fields.
         """
         if not cursor:
             if hasattr(callback, '_run_sync'):
                 return callback._run_sync(
                     self.save, insert=insert, cursor=callback,
-                    start_transaction=start_transaction, commit=commit
                 )
             raise Exception('cursor not specified')
 
@@ -213,15 +213,7 @@ class DAO():
                 self._updated = [field.name for field in fields]
             callback(0, self)
 
-        if start_transaction is False and commit is False:
-            cursor.transaction()
-        cursor.execute(
-            on_save,
-            stmt,
-            args,
-            start_transaction=start_transaction,
-            commit=commit,
-        )
+        cursor.execute(on_save, stmt, args)
 
     def insert(self, callback, id=None, cursor=None):
         """Force insert of database object.
@@ -285,7 +277,7 @@ class DAO():
                List of objects of type cls
         """
         args = tuple() if not args else args
-        return cls.query().where(where).execute(
+        return cls.query.where(where).execute(
             callback, arg=args, cursor=cursor
         )
 
@@ -325,7 +317,9 @@ class DAO():
     @classmethod
     def _callables(cls):
         return [nam for nam in dir(DAO) if
-                not nam.startswith('_') and callable(getattr(DAO, nam))]
+                nam != 'query' and
+                not nam.startswith('_') and
+                callable(getattr(DAO, nam))]
 
     def _transform_foreign(self, kwargs):
         transform = {}

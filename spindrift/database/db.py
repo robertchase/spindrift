@@ -19,17 +19,20 @@ class DB(object):
                 port=3306,
                 fsm_trace=None,    # callback for fsm events
                 sql_trace=None,    # callback for sql commands
-                autocommit=False,  # autocommit (True/False)
+                autocommit=True,   # autocommit (True/False)
                 isolation=None,    # session isolation level ("read committed", etc)
                 handler=None,      # alternate handler for mysql connection
                                    # spindrift.mysq.connection.MysqlHandler
                 commit=True,       # False to disallow COMMIT
+                                   #   (turns off autocommit)
                 sync=False,        # operate in synchronous mode
             ):
         self.network = network if network else Network()
         self.host = host
         self.port = port
         self.is_sync = sync
+        if commit is False:
+            autocommit = False
         self.context = connection.MysqlContext(
             user=user,
             pswd=pswd,
@@ -74,8 +77,13 @@ class DB(object):
             return async
 
         connection = self.connection
-        while not connection.is_ready:  # finish mysql handshake
+        for n in range(10):  # wait for connection to complete
+            if connection.is_ready:
+                break
             self.network.service()
+        if not connection.is_ready:
+            raise Exception('could not connect to database')
+
         cursor = connection.cursor
         cursor._run_sync = run_sync
         return cursor

@@ -103,7 +103,7 @@ class Children:
                 raise AttributeError('No foreign key match found')
 
         def _children(callback, cursor=None):
-            return self.cls.query().where(
+            return self.cls.query.where(
                 '`{}`=%s'.format(self.field_name)).execute(
                     callback, getattr(instance, instance._fields.pk),
                     cursor=cursor
@@ -164,6 +164,8 @@ class FieldCache:
     def parse_fields(self, cls, reserved):
         fields = []
         for nam in dir(cls):
+            if nam == 'query':
+                continue
             attr = getattr(cls, nam)
             if not isinstance(attr, Field):
                 continue
@@ -197,6 +199,8 @@ class FieldCache:
     def parse_children(self, cls, reserved):
 
         for nam in dir(cls):
+            if nam == 'query':
+                continue
             attr = getattr(cls, nam)
             if not isinstance(attr, Children):
                 continue
