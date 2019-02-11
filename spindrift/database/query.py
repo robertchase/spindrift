@@ -83,7 +83,10 @@ class Query(object):
         """
         table = import_by_path(table)
         if table2:
-            table2 = import_by_path(table2)
+            if table2 in self._tables:
+                table2 = self._tables[table2]
+            else:
+                table2 = import_by_path(table2)
         table, field, table2, field2 = self._normalize(table, table2)
         if alias is None:
             alias = table.__name__.lower()
@@ -128,7 +131,7 @@ class Query(object):
         return refs[0]
 
     def _find_primary_key_reference(self, table, table2):
-        tables = (QueryTable(table2),) if table2 else self._tables
+        tables = (table2,) if table2 else self._tables
         refs = [
             (t.cls, f.field_name) for t in tables
             for f in t.foreign.values()
@@ -149,27 +152,12 @@ class Query(object):
         if ref:
             return table, ref.field_name, ref.cls, ref.cls._fields.pk
 
-        import pdb; pdb.set_trace()
         ref = self._find_primary_key_reference(table, table2)
         if ref:
             cls, field = ref
             return table, table._fields.pk, cls, field
 
-        if field is None:
-            field, table2, field2 = self._normalize_field(
-                table, field, table2, field2)
-        elif table2 is None:
-            try:
-                fld = table._fields[field]
-            except AttributeError:
-                raise TypeError('table must be a DAO')
-            if not fld.foreign:
-                raise ValueError('table2 and field2 must be specified')
-            table2 = fld.foreign.cls
-        if field2 is None:
-            field2 = table2._fields.pk
-        table2 = [tbl for tbl in self._tables if tbl.cls == table2][0]
-        return table, field, table2, field2
+        raise Exception()
 
     def _build(self, one, limit, offset, for_update):
         if one and limit:
