@@ -17,6 +17,10 @@ class QueryTable:
     def fields(self):
         return self.cls._fields.db_read
 
+    @property
+    def foreign(self):
+        return self.cls._fields.foreign
+
 
 class Query(object):
 
@@ -39,26 +43,18 @@ class Query(object):
         self._order = order
         return self
 
-    def join(self, table, field=None, alias=None, table2=None, field2=None,
-             outer=None):
+    def join(self, table, alias=None, table2=None, outer=None):
         """Add a table to the query (equi join)
 
             Parameters:
                 table  - DAO of the table to add to the query
-                field  - name of join field in table (1)
-                alias  - name of joined table (2)
-                table2 - DAO of table to join (3)
-                field2 - name of join field in table (3)
+                alias  - name of joined table (1)
+                table2 - DAO of table to join (2)
                 outer  - OUTER join indicator
                          LEFT or RIGHT
 
            Notes:
-               1. If 'field' is not specified, then 'table' must contain a
-                  foreign key Field which references a DAO that is already
-                  part of the join. If muliple foreign key Fields match, then
-                  'field' must be specified in order to resolve the ambiguity.
-
-               2. Any joined DAO is accesible as an attribute of the DAO used
+               1. Any joined DAO is accesible as an attribute of the DAO used
                   to create the Query object. The default attribute name is
                   the lower case classname of the DAO. Specifying 'alias' will
                   override this default.
@@ -83,14 +79,12 @@ class Query(object):
                   an existing DAO attribute, or to allow the same DAO to be
                   joined more than once.
 
-               3. If a foreign key cannot be used to identify the DAO being
-                  joined, then 'table2' and 'field2' must be specified.
+               2. If multiple tables match...
         """
         table = import_by_path(table)
         if table2:
             table2 = import_by_path(table2)
-        table, field, table2, field2 = self._normalize(
-            table, field, table2, field2)
+        table, field, table2, field2 = self._normalize(table, table2)
         if alias is None:
             alias = table.__name__.lower()
 
@@ -114,40 +108,53 @@ class Query(object):
 
         return self
 
-    def _normalize_field(self, table, field, table2, field2):
+    def _find_foreign_key_reference(self, table, table2):
         try:
             foreign = table._fields.foreign
         except AttributeError:
             raise TypeError('table must be a DAO')
         if len(foreign) == 0:
-            raise TypeError(
-                "'{}' has no foreign keys, field must be specified".format(
-                    table.__name__
-                )
-            )
-        refs = [f for f in foreign.values() if f.cls in self._classes]
+            return None
+        classes = (table2,) if table2 else self._classes
+        refs = [f for f in foreign.values() if f.cls in classes]
         if len(refs) == 0:
-            raise TypeError(
-                "'{}' has no foreign keys that match".format(
-                    table.__name__
-                )
-            )
+            return None
         if len(refs) > 1:
             raise TypeError(
                 "'{}' has multiple foreign keys that match".format(
                     table.__name__
                 )
             )
-        ref = refs[0]
-        field = ref.field_name
-        if table2 is None:
-            table2 = ref.cls
-        if field2 is None:
-            field2 = table2._fields.pk
+        return refs[0]
 
-        return field, table2, field2
+    def _find_primary_key_reference(self, table, table2):
+        tables = (QueryTable(table2),) if table2 else self._tables
+        refs = [
+            (t.cls, f.field_name) for t in tables
+            for f in t.foreign.values()
+            if f.cls == table
+        ]
+        if len(refs) == 0:
+            return None
+        if len(refs) > 1:
+            raise TypeError(
+                "'{}' has multiple foreign keys that match".format(
+                    table.__name__
+                )
+            )
+        return refs[0]
 
-    def _normalize(self, table, field, table2, field2):
+    def _normalize(self, table, table2):
+        ref = self._find_foreign_key_reference(table, table2)
+        if ref:
+            return table, ref.field_name, ref.cls, ref.cls._fields.pk
+
+        import pdb; pdb.set_trace()
+        ref = self._find_primary_key_reference(table, table2)
+        if ref:
+            cls, field = ref
+            return table, table._fields.pk, cls, field
+
         if field is None:
             field, table2, field2 = self._normalize_field(
                 table, field, table2, field2)
