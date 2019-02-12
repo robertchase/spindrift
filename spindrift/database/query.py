@@ -8,9 +8,9 @@ from ergaleia.import_by_path import import_by_path
 
 class QueryTable:
 
-    def __init__(self, cls, alias):
+    def __init__(self, cls, alias=None):
         self.cls = cls
-        self.alias = alias
+        self.alias = alias or cls.__name__.lower()
         self.column_count = len(self.fields)
 
     @property
@@ -25,7 +25,7 @@ class QueryTable:
 class Query(object):
 
     def __init__(self, table):
-        self._tables = [QueryTable(table, table.TABLENAME)]
+        self._tables = [QueryTable(table)]
         self._join = '`' + table.TABLENAME + '`'
 
         self._where = None
@@ -43,13 +43,13 @@ class Query(object):
         self._order = order
         return self
 
-    def join(self, table, alias=None, table2=None, outer=None):
+    def join(self, table, table2=None, alias=None, outer=None):
         """Add a table to the query (equi join)
 
             Parameters:
                 table  - DAO of the table to add to the query
-                alias  - name of joined table (1)
                 table2 - DAO of table to join (2)
+                alias  - name of joined table (1)
                 outer  - OUTER join indicator
                          LEFT or RIGHT
 
@@ -82,11 +82,6 @@ class Query(object):
                2. If multiple tables match...
         """
         table = import_by_path(table)
-        if table2:
-            if table2 in self._tables:
-                table2 = self._tables[table2]
-            else:
-                table2 = import_by_path(table2)
         table, field, table2, field2 = self._normalize(table, table2)
         if alias is None:
             alias = table.__name__.lower()
@@ -118,8 +113,12 @@ class Query(object):
             raise TypeError('table must be a DAO')
         if len(foreign) == 0:
             return None
-        classes = (table2,) if table2 else self._classes
-        refs = [f for f in foreign.values() if f.cls in classes]
+        tables = (table2,) if table2 else self._tables
+        refs = []
+        for f in foreign.values():
+            for t in tables:
+                if f.cls == t.cls:
+                    refs.append((t, f))
         if len(refs) == 0:
             return None
         if len(refs) > 1:
@@ -133,7 +132,7 @@ class Query(object):
     def _find_primary_key_reference(self, table, table2):
         tables = (table2,) if table2 else self._tables
         refs = [
-            (t.cls, f.field_name) for t in tables
+            (t, f.field_name) for t in tables
             for f in t.foreign.values()
             if f.cls == table
         ]
@@ -148,14 +147,30 @@ class Query(object):
         return refs[0]
 
     def _normalize(self, table, table2):
+
+        if table2:
+            if table2 in self._tables:
+                # lookup by alias
+                table2 = self._tables[table2]
+            else:
+                # lookup by class
+                table2 = import_by_path(table2)
+                match = [t for t in self._tables if t.cls == table2]
+                if not match:
+                    raise Exception('not found')
+                elif len(match) > 1:
+                    raise Exception('ambiguous')
+                table2 = match[0]
+
         ref = self._find_foreign_key_reference(table, table2)
         if ref:
-            return table, ref.field_name, ref.cls, ref.cls._fields.pk
+            t, field = ref
+            return table, f.field_name, t, t.cls._fields.pk
 
         ref = self._find_primary_key_reference(table, table2)
         if ref:
-            cls, field = ref
-            return table, table._fields.pk, cls, field
+            t, field = ref
+            return table, table._fields.pk, t, field
 
         raise Exception()
 
