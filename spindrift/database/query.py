@@ -25,8 +25,9 @@ class QueryTable:
 class Query(object):
 
     def __init__(self, table):
-        self._tables = [QueryTable(table)]
-        self._join = '`' + table.TABLENAME + '`'
+        t = QueryTable(table)
+        self._tables = [t]
+        self._join = '`{}` AS `{}`'.format(table.TABLENAME, t.alias)
 
         self._where = None
         self._order = None
@@ -165,7 +166,7 @@ class Query(object):
         ref = self._find_foreign_key_reference(table, table2)
         if ref:
             t, field = ref
-            return table, f.field_name, t, t.cls._fields.pk
+            return table, field.field_name, t, t.cls._fields.pk
 
         ref = self._find_primary_key_reference(table, table2)
         if ref:

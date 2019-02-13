@@ -54,7 +54,7 @@ class Field:
 
     def as_select(self, table):
         if self.expression:
-            exp = self.expression.format(table=table)
+            exp = self.expression.format(table='`' + table + '`')
             return '{} AS `{}`'.format(exp, self.name)
         if self.alias:
             return '`{}`.`{}` AS `{}`'.format(table, self.column, self.alias)

@@ -83,9 +83,10 @@ def test_table2(data, sync):
     result = models.Node.query.join(models.Root, models.Node).execute(sync)
     assert result
     assert len(result) == 2
-    r = result[0]
-    n = r.node
+    n = result[0]
+    r = n.root
     assert isinstance(n, models.Node)
+    assert isinstance(r, models.Root)
 
 
 def test_alias(data, sync):

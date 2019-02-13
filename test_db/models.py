@@ -13,9 +13,7 @@ class Root(DAO):
     id = Field(int, is_primary=True)
     foo = Field(int, default=0)
     bar = Field(int, is_nullable=True)
-    foo_bar = Field(expression='`{}`.foo + `{}`.bar'.format(
-        TABLENAME, TABLENAME
-    ))
+    foo_bar = Field(expression='{table}.`foo` + {table}.`bar`')
 
     nodes = Children('test_db.models.Node')
 
