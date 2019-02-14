@@ -34,12 +34,12 @@ class DAO():
         return '<{}>:{}'.format(self.__class__.__name__, flds)
 
     def __getattr__(self, name):
-        lookup = self._fields.lookup.get(name)
-        if lookup:
-            return lookup(self)
         joined_table = self.__dict__.get('_tables', {}).get(name)
         if joined_table:
             return joined_table
+        lookup = self._fields.lookup.get(name)
+        if lookup:
+            return lookup(self)
         raise AttributeError("'{}' is not a '{}' attribute".format(
             name, self.__class__.__name__
         ))

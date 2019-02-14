@@ -158,9 +158,15 @@ class Query(object):
                 table2 = import_by_path(table2)
                 match = [t for t in self._tables if t.cls == table2]
                 if not match:
-                    raise Exception('not found')
+                    raise TypeError(
+                        "'{}' does not match any tables".format(
+                            table2.__name__
+                        )
+                    )
                 elif len(match) > 1:
-                    raise Exception('ambiguous')
+                    raise TypeError(
+                        "'{}' matches multiple tables".format(table2.__name__)
+                    )
                 table2 = match[0]
 
         ref = self._find_foreign_key_reference(table, table2)
@@ -173,7 +179,11 @@ class Query(object):
             t, field = ref
             return table, table._fields.pk, t, field
 
-        raise Exception()
+        raise TypeError(
+            "no primary or foreign key matches found for '{}'".format(
+                table2.__name__
+            )
+        )
 
     def _build(self, one, limit, offset, for_update):
         if one and limit:
