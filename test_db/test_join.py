@@ -14,7 +14,7 @@ def data(sync):
 
 def test_table_only():
     table, field, table2, field2 = Query(models.Root)._normalize(
-        models.Node, None, None, None)
+        models.Node, None)
     assert field == 'parent_id'
     assert table2.cls == models.Root
     assert field2 == 'id'
