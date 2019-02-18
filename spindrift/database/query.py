@@ -45,17 +45,33 @@ class Query(object):
         return self
 
     def join(self, table, table2=None, alias=None, outer=None):
-        """Add a table to the query (equi join)
+        """Add a table to the query
+
+           The table will be joined to another table in the query using
+           foreign or primary key matches.
 
             Parameters:
-                table  - DAO of the table to add to the query
-                table2 - DAO of table to join (2)
-                alias  - name of joined table (1)
+                table  - DAO of the table to add to the query (1)(4)
+                table2 - name, alias or DAO of table to join (2)
+                alias  - name of joined table (3)
                 outer  - OUTER join indicator
                          LEFT or RIGHT
 
            Notes:
-               1. Any joined DAO is accesible as an attribute of the DAO used
+               1. The table can be specified as a DAO or as a dot separated
+                  path to a DAO for import. First, foreign keys in 'table'
+                  will be checked for a single matching primary key in one
+                  of the tables that is already part of the query. If no
+                  match is found, the primary key of 'table' will be matched
+                  in the same way.
+               2. If multiple matches occur when trying to join 'table',
+                  the ambiguity can be removed by specifying which existing
+                  table to match. Foreign keys from 'table' will be checked
+                  first, followed by the primary key.
+               3. The 'alias' parameter can be used to prevent collision with
+                  an existing DAO attribute, or to allow the same DAO to be
+                  joined more than once.
+               4. Any joined DAO is accesible as an attribute of the DAO used
                   to create the Query object. The default attribute name is
                   the lower case classname of the DAO. Specifying 'alias' will
                   override this default.
@@ -75,18 +91,19 @@ class Query(object):
 
                   In the case of multiple join clauses, each joined instance
                   will be added to the DAO used to create the Query object.
-
-                  The 'alias' parameter can be used to prevent collision with
-                  an existing DAO attribute, or to allow the same DAO to be
-                  joined more than once.
-
-               2. If multiple tables match...
         """
-        table = import_by_path(table)
-        table, field, table2, field2 = self._normalize(table, table2)
+        try:
+            table = import_by_path(table)
+        except ValueError:
+            raise TypeError("invalid path to table: '{}'".format(table))
+        except ModuleNotFoundError:
+            raise TypeError("unable to load '{}'".format(table))
         if alias is None:
             alias = table.__name__.lower()
+        if alias in [t.alias for t in self._tables]:
+            raise ValueError("duplicate table '{}'".format(alias))
 
+        table, field, table2, field2 = self._normalize(table, table2)
         self._tables.append(QueryTable(table, alias))
 
         if outer is None:
@@ -115,11 +132,11 @@ class Query(object):
         if len(foreign) == 0:
             return None
         tables = (table2,) if table2 else self._tables
-        refs = []
-        for f in foreign.values():
-            for t in tables:
-                if f.cls == t.cls:
-                    refs.append((t, f))
+        refs = [
+            (t, f) for f in foreign.values()
+            for t in tables
+            if f.cls == t.cls
+        ]
         if len(refs) == 0:
             return None
         if len(refs) > 1:
@@ -141,7 +158,7 @@ class Query(object):
             return None
         if len(refs) > 1:
             raise TypeError(
-                "'{}' has multiple foreign keys that match".format(
+                "'{}' matches mutiple foreign keys".format(
                     table.__name__
                 )
             )
@@ -181,7 +198,7 @@ class Query(object):
 
         raise TypeError(
             "no primary or foreign key matches found for '{}'".format(
-                table2.__name__
+                table.__name__
             )
         )
 
