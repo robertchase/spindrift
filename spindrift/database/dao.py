@@ -109,7 +109,7 @@ class DAO():
                 )
             raise Exception('cursor not specified')
 
-        where = '`{}`.`{}`=%s'.format(cls.TABLENAME, cls._fields.pk)
+        where = '`{}`=%s'.format(cls._fields.pk)
         cls.query.where(where).execute(callback, key, one=True, cursor=cursor)
 
     class _classproperty(object):
