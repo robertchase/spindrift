@@ -229,27 +229,21 @@ class Query(object):
 
     def execute(self, callback, arg=None,
                 one=False, limit=None, offset=None, for_update=False,
-                before_execute=None, after_execute=None,
                 cursor=None):
         if not cursor:
             if hasattr(callback, '_run_sync'):
                 return callback._run_sync(
                     self.execute, arg=arg, one=one, limit=limit, offset=offset,
-                    for_update=for_update, before_execute=before_execute,
-                    after_execute=after_execute, cursor=callback,
+                    for_update=for_update, cursor=callback,
                 )
             raise Exception('cursor not specified')
         stmt = self._build(one, limit, offset, for_update)
-        if before_execute:
-            before_execute(self)
 
         def on_execute(rc, result):
             if rc != 0:
                 return callback(rc, result)
 
             columns, values = result
-            if after_execute:
-                after_execute(self)
             rows = []
             for rs in values:
                 tables = None
