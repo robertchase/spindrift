@@ -33,7 +33,7 @@ class MysqlHandler(network.Handler):
 
     @property
     def raw_query(self):
-        return self.cursor._before_executed
+        return self.cursor.statement_before
 
     def on_close(self, reason):
         self._cursor.close()
