@@ -34,12 +34,13 @@ class Task(object):
         return cleanup_before_callback
 
     def call(self, fn, args=None, kwargs=None, on_success=None, on_none=None,
-             on_error=None, on_timeout=None):
+             on_none_return=False, on_error=None, on_timeout=None):
         self.is_done = False
 
         def cb(rc, result):
             if rc == 0:
-                _callback(self, fn, result, on_success, on_none)
+                _callback(self, fn, result, on_success, on_none_return,
+                          on_none)
             else:
                 _callback_error(self, fn, result, on_error, on_timeout)
             self.is_done = True
@@ -81,7 +82,10 @@ def inspect_parameters(fn, kwargs):
     return task, cursor
 
 
-def _callback(task, fn, result, on_success, on_none):
+def _callback(task, fn, result, on_success, on_none_return, on_none):
+    if on_none_return and result is None:
+        log.debug('task.callback, cid=%s, on_none_return', task.cid)
+        return task.callback(0, result)
     if on_none and result is None:
         try:
             log.debug('task.callback, cid=%s, on_none fn=%s', task.cid, on_none)

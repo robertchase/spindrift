@@ -73,10 +73,10 @@ call(
     args=args,
     kwargs=kwargs,
     on_success=on_success_callable,
-    on_success_code=status code to respond with on success,
     on_error=on_error_callable,
     on_none=on_none_callable,
-    on_none_404=boolean (default=False),
+    on_none_return=boolean (default=False),
+    on_timeout=on_timeout_callable,
 )
 ```
 
@@ -90,9 +90,11 @@ call(
 
 `on_success` - an `async callback` function called when `rc`==0 [Note 1]
 
+`on_error` - an `async callback` function called when `rc`!=0 [Note 2]
+
 `on_none` - an `async callback` function called when `rc`==0 and `result` is None
 
-`on_error` - an `async callback` function called when `rc`!=0 [Note 2]
+`on_none_return` - a boolean, if True then immediate `callback(0, None)` on None result
 
 `on_timeout` - an `async callback` function called with `rc`==` and `result` == 'timeout'
 
