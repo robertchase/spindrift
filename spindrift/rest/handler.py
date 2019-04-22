@@ -57,7 +57,7 @@ class RESTHandler(http.HTTPHandler):
                 )
             except Exception as e:
                 log.warning(e)
-                return request.respond(400)
+                return request.respond(400, str(e))
             result = self._rest_handler(request, *args, **kwargs)
             if request.is_done:  # already responded
                 pass
