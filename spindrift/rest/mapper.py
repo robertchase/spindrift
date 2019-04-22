@@ -24,6 +24,12 @@ class MissingRequiredContent(Exception):
         super(MissingRequiredContent, self).__init__(msg)
 
 
+class InvalidContent(Exception):
+    def __init__(self, key, error):
+        msg = "invalid value for '{}': {}".format(key, error)
+        super(InvalidContent, self).__init__(msg)
+
+
 class RESTArg(object):
 
     def __init__(self, type, name=None, is_required=True):
@@ -74,7 +80,10 @@ class RESTMethod(object):
                     raise MissingRequiredContent(coercer.name)
             else:
                 if coercer.type:
-                    value = coercer.type(value)
+                    try:
+                        value = coercer.type(value)
+                    except ValueError as e:
+                        raise InvalidContent(coercer.name, str(e))
                 kwargs[coercer.name] = value
 
         return args, kwargs
