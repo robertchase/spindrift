@@ -264,12 +264,16 @@ class DAO():
         cursor.execute(on_delete, query, getattr(self, pk))
 
     @classmethod
-    def list(cls, callback, where=None, args=None, cursor=None):
+    def list(cls, callback, where=None, order=None, offset=None, limit=None,
+             args=None, cursor=None):
         """Query for a set of objects from underlying table
 
            Parameters:
                callback - callback_fn(rc, result)
                where - optional where clause to restrict list
+               order - optional order clause to sort list
+               offset - offset into selected list
+               limit - number of instances to return
                args - optional substitution values for where clause
                cursor - database cursor
 
@@ -277,8 +281,8 @@ class DAO():
                List of objects of type cls
         """
         args = tuple() if not args else args
-        return cls.query.where(where).execute(
-            callback, arg=args, cursor=cursor
+        return cls.query.where(where).order(order).execute(
+            callback, arg=args, offset=offset, limit=limit, cursor=cursor
         )
 
     @classmethod
