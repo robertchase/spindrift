@@ -235,6 +235,8 @@ class RESTRequest(object):
     @property
     def json(self):
         if not hasattr(self, '_json'):
+            if isinstance(self.http_content, bytearray):
+                self.http_content = self.http_content.decode()
             if self.http_content and self.http_content.lstrip()[0] in '[{':
                 try:
                     self._json = json.loads(self.http_content)
