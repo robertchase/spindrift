@@ -291,6 +291,7 @@ class Protocol(object):
 
     def act_close(self):
         self.connection.close(None)
+        self._done(1, 'database connection closed')
 
     def act_ready(self):
         self.connection.is_ready = True
