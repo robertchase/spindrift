@@ -162,14 +162,15 @@ class Parser(object):
         self._add_config(config.name, **config.kwargs)
 
     def add_log_config(self):
-        self._add_config('log.name', value=self.log.name)
+        self._add_config('log.name', value=self.log.name, env='LOG_NAME')
         self._add_config(
-            'log.level', value=self.log.level, env='SPINDRIFT_LOG_LEVEL'
+            'log.level', value=self.log.level, env='LOG_LEVEL'
         )
         self._add_config(
             'log.is_stdout',
             value=self.log.is_stdout,
-            validator=config_file.validate_bool
+            validator=config_file.validate_bool,
+            env='LOG_IS_STDOUT',
         )
 
     def act_add_arg(self):
@@ -193,22 +194,26 @@ class Parser(object):
             if connection.url is not None:
                 self._add_config(
                     'connection.%s.url' % connection.name,
-                    value=connection.url
+                    value=connection.url,
+                    env='CONNECTION_%s_URL' % connection.name,
                 )
             self._add_config(
                 'connection.%s.is_active' % connection.name,
                 value=True,
-                validator=config_file.validate_bool
+                validator=config_file.validate_bool,
+                env='CONNECTION_%s_IS_ACTIVE' % connection.name,
             )
             self._add_config(
                 'connection.%s.is_verbose' % connection.name,
                 value=connection.is_verbose,
-                validator=config_file.validate_bool
+                validator=config_file.validate_bool,
+                env='CONNECTION_%s_IS_VERBOSE' % connection.name
             )
             self._add_config(
                 'connection.%s.timeout' % connection.name,
                 value=connection.timeout,
-                validator=float
+                validator=float,
+                env='CONNECTION_%s_TIMEOUT' % connection.name
             )
 
     def act_add_content(self):
@@ -224,32 +229,41 @@ class Parser(object):
                 'db.is_active',
                 value=database.is_active,
                 validator=config_file.validate_bool,
+                env='DATABASE_IS_ACTIVE',
             )
-            self._add_config('db.user', value=database.user)
-            self._add_config('db.password', value=database.password)
-            self._add_config('db.database', value=database.database)
-            self._add_config('db.host', value=database.host, env='MYSQL_HOST')
+            self._add_config('db.user', value=database.user,
+                             env='DATABASE_USER')
+            self._add_config('db.password', value=database.password,
+                             env='DATABASE_PASSWORD')
+            self._add_config('db.database', value=database.database,
+                             env='DATABASE_NAME')
+            self._add_config('db.host', value=database.host,
+                             env='DATABASE_HOST')
             self._add_config(
                 'db.port',
                 value=database.port,
                 validator=int,
+                env='DATABASE_PORT',
             )
-            self._add_config('db.isolation', value=database.isolation)
+            self._add_config('db.isolation', value=database.isolation,
+                             env='DATABASE_ISOLATION')
             self._add_config(
                 'db.timeout',
                 value=database.timeout,
                 validator=float,
+                env='DATABASE_TIMEOUT',
             )
             self._add_config(
                 'db.long_query',
                 value=database.long_query,
                 validator=float,
+                env='DATABASE_LONG_QUERY',
             )
             self._add_config(
                 'db.fsm_trace',
                 value=database.fsm_trace,
                 validator=config_file.validate_bool,
-                env='SPINDRIFT_DB_FSM_TRACE',
+                env='DATABASE_FSM_TRACE',
             )
 
     def act_add_header(self):
@@ -268,6 +282,9 @@ class Parser(object):
                     self.connection.name,
                     header.config),
                     value=header.default,
+                    env='CONNECTION_%s_HEADER_%s' % (
+                        self.connection.name, header.config
+                    ),
                 )
 
     def act_add_resource_header(self):
@@ -287,6 +304,11 @@ class Parser(object):
                     self.connection._resource.name,
                     header.config),
                     value=header.default,
+                    env='CONNECTION_%s_RESOURCE_%s_HEADER_%s' % (
+                        self.connection.name,
+                        self.connection._resource.name,
+                        header.config,
+                    )
                 )
 
     def act_add_method(self):
@@ -307,6 +329,11 @@ class Parser(object):
                     optional.config),
                 value=optional.default,
                 validator=optional.validate,
+                env='CONNECTION_%s_RESOURCE_%s_%s' % (
+                    self.connection.name,
+                    resource.name,
+                    optional.config,
+                ),
             )
 
     def act_add_resource(self):
@@ -326,6 +353,10 @@ class Parser(object):
                 ),
                 value=value,
                 validator=config_file.validate_bool,
+                env='CONNECTION_%s_RESOURCE_%s_IS_VERBOSE' % (
+                    self.connection.name,
+                    resource.name,
+                ),
             )
 
     def act_add_route(self):
@@ -342,24 +373,29 @@ class Parser(object):
                 'server.%s.port' % server.name,
                 value=server.port,
                 validator=int,
+                env='SERVER_%s_PORT' % server.name,
             )
             self._add_config(
                 'server.%s.is_active' % server.name,
                 value=True,
                 validator=config_file.validate_bool,
+                env='SERVER_%s_IS_ACTIVE' % server.name,
             )
             self._add_config(
                 'server.%s.ssl.is_active' % server.name,
                 value=False,
                 validator=config_file.validate_bool,
+                env='SERVER_%s_SSL_IS_ACTIVE' % server.name,
             )
             self._add_config(
                 'server.%s.ssl.keyfile' % server.name,
                 validator=config_file.validate_file,
+                env='SERVER_%s_SSL_KEYFILE' % server.name,
             )
             self._add_config(
                 'server.%s.ssl.certfile' % server.name,
                 validator=config_file.validate_file,
+                env='SERVER_%s_SSL_CERTFILE' % server.name,
             )
 
             self._add_config(

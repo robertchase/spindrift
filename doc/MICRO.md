@@ -53,9 +53,9 @@ valid log level, typically, *debug* or *info*.
 ##### config
 
 ```
-log.name=MICRO
-log.level=DEBUG
-log.is_stdout=true
+log.name=MICRO env=LOG_NAME
+log.level=DEBUG env=LOG_LEVEL
+log.is_stdout=true env=LOG_IS_STDOUT
 ```
 
 ### SERVER
@@ -70,11 +70,11 @@ The `name` parameter is used in log messages and in the config.
 ##### config
 
 ```
-server.[name].port=[port]
-server.[name].is_active=true
-server.[name].ssl.is_active=false
-server.[name].ssl.keyfile=
-server.[name].ssl.certfile=
+server.[name].port=[port] env=SERVER_[name]_PORT
+server.[name].is_active=true env=SERVER_[name]_IS_ACTIVE
+server.[name].ssl.is_active=false env=SERVER_[name]_SSL_IS_ACTIVE
+server.[name].ssl.keyfile= env=SERVER_[name]_SSL_KEYFILE
+server.[name].ssl.certfile= env=SERVER_[name]_SSL_CERTFILE
 ```
 
 A server is active by default, and operates without ssl. If `ssl.is_active=true`
@@ -231,16 +231,16 @@ for the duration of a request to handle any database activity. Connections are s
 ##### config
 
 ```
-db.is_active=true
-db.user=None
-db.password=None
-db.database=None
-db.host=None env=MYSQL_HOST
-db.port=3306
-db.isolation=READ COMMITTED
-db.timeout=60.0
-db.long_query=.5
-db.fsm_trace=false
+db.is_active=true env=DATABASE_IS_ACTIVE
+db.user=None env=DATABASE_USER
+db.password=None env=DATABASE_PASSWORD
+db.database=None env=DATABASE_NAME
+db.host=None env=DATABASE_HOST
+db.port=3306 env=DATABASE_PORT
+db.isolation='READ COMMITTED' env=DATABASE_ISOLATION
+db.timeout=60.0 env=DATABASE_TIMEOUT
+db.long_query=.5 env=DATABASE_LONG_QUERY
+db.fsm_trace=false env=DATABASE_FSM_TRACE
 ```
 
 ### CONNECTION
@@ -329,10 +329,10 @@ url assignment to be delayed until the connection is made.
 ##### config
 
 ```
-connection.[name].url=url
-connection.[name].is_active=True
-connection.[name].is_verbose=is_verbose
-connection.[name].timeout=timeout
+connection.[name].url=url env=CONNECTION_[name]_URL
+connection.[name].is_active=True env=CONNECTION_[name]_IS_ACTIVE
+connection.[name].is_verbose=is_verbose env=CONNECTION_[name]_IS_VERBOSE
+connection.[name].timeout=timeout env=CONNECTION_[name]_TIMEOUT
 ```
 
 ### HEADER
@@ -368,13 +368,13 @@ At least one of `default`, `config` or `code` must be specified.
 ##### config
 
 ```
-connection.[name].header.[key]=[value]
+connection.[name].header.[key]=[value] env=CONNECTION_[name]_HEADER_[key]
 ```
 
 **or**
 
 ```
-connection.[name].resource[name].header.[key]=[value]
+connection.[name].resource[name].header.[key]=[value] env=CONNECTION_[name]_RESOURCE_[name]_HEADER_[key]
 ```
 
 ### RESOURCE
@@ -441,7 +441,7 @@ If no `required` or `optional` arguments are specified, then the body is empty.
 
 ##### config
 ```
-connection.[name].resource.[name].is_verbose=
+connection.[name].resource.[name].is_verbose= env=CONNECTION_[name]_RESOURCE_[name]_IS_VERBOSE
 ```
 
 ### REQUIRED
@@ -464,11 +464,12 @@ The `optional` directive defines an optional argument for the most recent `resou
 
 The parameter value is determined by:
 
+1. an env vairable (if config value is specified): `CONNECTION_[name]_RESOURCE_[name]_[config]`,
 2. the config value, if specified,
 3. the the default value, if specified,
 3. otherwise the value is None
 
-If the [key]=[value] `kwarg` is specified in the function call, this value overrides `default` or `config`.
+If a [key]=[value] `kwarg` is specified in the function call, this value overrides any of the above.
 
 ##### parameters
 
