@@ -189,9 +189,10 @@ wrapped with the specified function before being
 added as a handler's parameter.
 The function may transform the value in any way, or raise a ValueError.
 
-Two built-in functions are available:
+Some built-in functions are available:
 
 * int - ensure value is composed of only numeric characters, return int
+* count - ensure value is a positive integer (counting number), return int
 * bool - transform `true` (any case) or `1` to True, and `false` (any case) or `0` to False
 
 Otherwise, `type` is a dot-delimited path to a custom function, which will

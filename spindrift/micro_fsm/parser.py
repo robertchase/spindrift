@@ -528,12 +528,23 @@ def _coerce_type(type, enum, enums):
         except Exception:
             raise ValueError('must be an int')
 
+    def validate_count(value):
+        try:
+            value = int(value)
+            if value > 0:
+                return value
+        except Exception:
+            pass
+        raise ValueError('must be a postive int')
+
     if enum:
         if enum not in enums:
             raise Excpetion("enum '%s' not defined" % enum)
         type = enums[enum]
     elif type == 'int':
         type = validate_int
+    elif type == 'count':
+        type = validate_count
     elif type == 'bool':
         type = config_file.validate_bool
     else:
