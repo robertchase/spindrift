@@ -27,7 +27,7 @@ def test_ping():
     s = [
         'SERVER coerce {}'.format(PORT),
         r'  ROUTE {}/(?P<id>\d+)$'.format(PATH),
-        '    TYPE int',
+        '    ARG int',
         '    GET test.test_micro_coerce.coerce',
         '        CONTENT when type=test.test_micro_coerce.to_date',
         'CONNECTION coerce http://localhost:{}'.format(PORT),

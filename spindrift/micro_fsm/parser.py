@@ -5,6 +5,7 @@ https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
 import ergaleia.config as config_file
 from ergaleia.to_args import to_args
+from ergaleia.import_by_path import import_by_path
 from ergaleia.normalize_path import normalize_path
 from spindrift.micro_fsm.fsm_micro import create as create_machine
 
@@ -102,11 +103,13 @@ class Parser(object):
             add_route=self.act_add_route,
             add_server=self.act_add_server,
             add_setup=self.act_add_setup,
+            add_enum=self.act_add_enum,
             add_teardown=self.act_add_teardown,
         )
         self.error = None
         self.fsm.state = 'init'
         self.config = config_file.Config()
+        self._enums = {}
         self.setup = None
         self.teardown = None
         self.database = None
@@ -174,7 +177,13 @@ class Parser(object):
         )
 
     def act_add_arg(self):
-        self.server.add_arg(Arg(*self.args, **self.kwargs))
+        self.server.add_arg(Arg(*self.args, enums=self._enums, **self.kwargs))
+
+    def act_add_enum(self):
+        enum = Enum(*self.args, **self.kwargs)
+        if enum.name in self._enums:
+            self.error = "ENUM '%s' specified more than once" % enum.name
+        self._enums[enum.name] = enum
 
     def act_add_log(self):
         self.log = Log(*self.args, **self.kwargs)
@@ -217,7 +226,8 @@ class Parser(object):
             )
 
     def act_add_content(self):
-        self.server.add_content(Content(*self.args, **self.kwargs))
+        self.server.add_content(Content(*self.args, enums=self._enums,
+                                        **self.kwargs))
 
     def act_add_database(self):
         if self.database:
@@ -492,17 +502,63 @@ class Method(object):
         self.content = []
 
 
-class Arg(object):
+class Enum:
 
-    def __init__(self, type):
-        self.type = type
-
-
-class Content(object):
-
-    def __init__(self, name, type=None, is_required=True):
-        self.type = type
+    def __init__(self, name, *values, to_upper=False, to_lower=False):
         self.name = name
+        self.values = values
+        self.to_upper = to_upper
+        self.to_lower = to_lower
+
+    def __call__(self, value):
+        if self.to_upper:
+            value = value.upper()
+        elif self.to_lower:
+            value = value.lower()
+        if value in self.values:
+            return value
+        raise ValueError('must be one of: %s' % str(self.values))
+
+
+def _coerce_type(type, enum, enums):
+
+    def validate_int(value):
+        try:
+            return int(value)
+        except Exception:
+            raise ValueError('must be an int')
+
+    if enum:
+        if enum not in enums:
+            raise Excpetion("enum '%s' not defined" % enum)
+        type = enums[enum]
+    elif type == 'int':
+        type = validate_int
+    elif type == 'bool':
+        type = config_file.validate_bool
+    else:
+        try:
+            type = import_by_path(type)
+        except Exception:
+            raise Exception(
+                "unable to import validation function '{}'".format(type)
+            )
+
+    return type
+
+
+class Arg:
+
+    def __init__(self, type=None, enum=None, enums=None):
+        self.type = _coerce_type(type, enum, enums)
+
+
+class Content:
+
+    def __init__(self, name, type=None, enum=None, enums=None,
+                 is_required=True):
+        self.name = name
+        self.type = _coerce_type(type, enum, enums)
         self.is_required = config_file.validate_bool(is_required)
 
 

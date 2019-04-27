@@ -35,16 +35,6 @@ class RESTArg(object):
     def __init__(self, type, name=None, is_required=True):
         self.name = name
         self.is_required = is_required
-
-        if type in ('int', 'bool'):
-            type = _VALIDATE_MAP[type]
-        else:
-            try:
-                type = import_by_path(type)
-            except Exception:
-                raise Exception(
-                    "unable to import validation function '{}'".format(type)
-                )
         self.type = type
 
 

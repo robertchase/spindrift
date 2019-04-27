@@ -5,15 +5,16 @@
 #
 # SERVER :name :port
 #   ROUTE :pattern
-#     TYPE :type
+#     ARG -type=None -enum=None
 #     GET|PUT|POST|DELETE :path
-#       CONTENT :name -type=str required=true
+#       CONTENT :name -type=None -enum=None is_required=true
 # CONNECTION :name :url -is_json=True -is_verbose=True -timeout=5.0 -handler=None -setup=None -wrapper=None -setup=None
 #   HEADER :key -default=None -config=None -code=None
 #   RESOURCE :name :path -method=GET -is_json=None -is_verbose=None -timeout=None -handler=None -setup=None -wrapper=None -setup=None
 #     REQUIRED :name
 #     OPTIONAL :name -default=None, -config=None -validate=None
 # DATABASE -is_active=True -user=None -password=None -database=None -host=None -port=3306 -isolation='READ COMMITTED' -handler=None -timeout=60.0 -long_query=0.5
+# ENUM :name item1 item2 ... -is_upper=false -is_lower=false
 # LOG :name -stdout=False
 # CONFIG :name default=None, validate=None, env=None
 # SETUP :path
@@ -26,6 +27,7 @@ STATE init
         ACTION add_config
     EVENT database database
     EVENT setup setup
+    EVENT enum enum
     EVENT teardown teardown
     EVENT log log
 
@@ -36,6 +38,19 @@ STATE database
     EVENT config
         ACTION add_config
     EVENT setup setup
+    EVENT enum enum
+    EVENT teardown teardown
+    EVENT log log
+
+STATE enum
+    ENTER add_enum
+    EVENT server server
+    EVENT connection connection
+    EVENT config
+        ACTION add_config
+    EVENT setup setup
+    EVENT enum enum
+    EVENT database database
     EVENT teardown teardown
     EVENT log log
 
@@ -45,6 +60,7 @@ STATE setup
     EVENT connection connection
     EVENT config
         ACTION add_config
+    EVENT enum enum
     EVENT database database
     EVENT teardown teardown
     EVENT log log
@@ -57,6 +73,7 @@ STATE teardown
         ACTION add_config
     EVENT database database
     EVENT setup setup
+    EVENT enum enum
     EVENT log log
 
 STATE log
@@ -67,6 +84,7 @@ STATE log
         ACTION add_config
     EVENT database database
     EVENT setup setup
+    EVENT enum enum
 
 STATE server
     ENTER add_server
@@ -77,7 +95,7 @@ STATE server
 
 STATE route
     ENTER add_route
-    EVENT type
+    EVENT arg
         ACTION add_arg
     EVENT get method
     EVENT post method
@@ -105,6 +123,7 @@ STATE method
         ACTION add_config
     EVENT database database
     EVENT setup setup
+    EVENT enum enum
     EVENT teardown teardown
     EVENT log log
 
@@ -132,5 +151,6 @@ STATE resource
     EVENT connection connection
     EVENT database database
     EVENT setup setup
+    EVENT enum enum
     EVENT teardown teardown
     EVENT log log
