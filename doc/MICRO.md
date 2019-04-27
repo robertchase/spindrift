@@ -31,169 +31,12 @@ db.database=bar
 
 The config file, if it exists, is read after parsing the `micro` file, and overrides any
 previously specified defaults.
-Treat the `micro` file as code, and use the config file for runtime configuration.
+Treat the `micro` file as code, and use the config file for run time configuration.
 
 Boolean values, for instance *is_debug*, can be set to any case-insensitive
 version of *true* or *false*.
 
 ## Directives
-
-### LOG
-
-```
-LOG name=MICRO level=debug is_stdout=true
-```
-
-The `log` directive overrides default logging behavior for *spindrift*.
-By default, log messages are created with the *TAG* `MICRO`, with log level
-set to `DEBUG` and with messages sent to stdout.
-The value for `log.level` is case insensitive, and can be any
-valid log level, typically, *debug* or *info*.
-
-##### config
-
-```
-log.name=MICRO env=LOG_NAME
-log.level=DEBUG env=LOG_LEVEL
-log.is_stdout=true env=LOG_IS_STDOUT
-```
-
-### SERVER
-
-```
-SERVER name port
-```
-
-The `server` directive defines a port listening for incoming HTTP connections.
-The `name` parameter is used in log messages and in the config.
-
-##### config
-
-```
-server.[name].port=[port] env=SERVER_[name]_PORT
-server.[name].is_active=true env=SERVER_[name]_IS_ACTIVE
-server.[name].ssl.is_active=false env=SERVER_[name]_SSL_IS_ACTIVE
-server.[name].ssl.keyfile= env=SERVER_[name]_SSL_KEYFILE
-server.[name].ssl.certfile= env=SERVER_[name]_SSL_CERTFILE
-```
-
-A server is active by default, and operates without ssl. If `ssl.is_active=true`
-is specified in the config, the `ssl.keyfile` and `ssl.certfile` must also
-be specified, and must point to existing files.
-
-### ROUTE
-
-```
-ROUTE [pattern]
-```
-
-The `route` directive defines a regular expression used to match
-the *path* in incoming HTTP documents.
-
-The `pattern` can include regex groups, whose matched values are passed as arguments
-to the rest handler.
-
-
-### TYPE
-
-```
-TYPE int|bool|path
-```
-
-The `type` directive defines a type-coercion function
-for a `route pattern`'s
-regex group.
-The value parsed from the path is
-wrapped with the specified function before being
-added as a handler's parameter.
-The function may transform the value in any way, or raise an Exception.
-
-Two built-in functions are available:
-
-* int - ensure value is composed of only numeric characters, return int
-* bool - transform `true` (any case) or `1` to True, and `false` (any case) or `0` to False
-
-Otherwise, `path` is a dot-delimited path to a custom function, which will
-be dynamically loaded.
-
-Each `TYPE` directive is paired to the regex groups in sequenece. There can not
-be more `TYPE` directives than regex groups, but there can be fewer.
-
-### GET / POST / PUT / DELETE
-
-A `route` directive is not useful without
-one or more of the following
-directives describing how to handle HTTP methods.
-
-```
-[GET|POST|PUT|DELETE] [path]
-```
-
-These directives define a code path to run when the respective HTTP method is received.
-
-These directives will be associated with the most recently encountered `route` directive.
-
-##### Example
-
-```
-ROUTE /users/(\d+)$
-  GET myservice.handlers.user.get
-  PUT myservice.handlers.user.update
-```
-
-Here, the function `get` in the module `myservice/handlers.user.py` will be called
-when an HTTP document's method matches `GET` and the path matches `/users/123` (or any number).
-
-The function `update` in the program `myservice/handlers.user.py` will be called
-when an HTTP document's method matches `PUT` and the path matches `/users/456` (or any number).
-
-### CONTENT
-```
-CONTENT name type=None is_required=True
-```
-
-The `content` directive defines a keyword argument to the rest handler
-that is extracted from the http document.
-The `type` parameter, if specified, acts in the same way as the `type` directive.
-The `is_required` parameter indicates if the `content` argument is required
-to be present.
-
-The parameter is located in the http document as a key value-pair in one of:
-
-1. http_body as a json dictionary
-2. query string
-3. http_body as form data
-
-##### Example
-
-```
-ROUTE /users/(\d+)/age$
-  TYPE int
-  PUT myservice.handlers.user.update_age
-    CONTENT age int
-```
-
-Here the function `update_age` in the module `myservice/handlers/user`
-will be called when an HTTP documents's method matches `PUT` and the path
-matches `/users/123/age` (or any number).
-
-If the `PUT` call includes the following body:
-```
-{
-  "age": 50
-}
-```
-
-then `age=50` will be passed to the `update_age` handler.
-
-The `user_id` argument will be coerced to an `int` (123), as will `age` (50).
-
-Here is a possible signature for the `update_age` handler (including
-the `request` argument, which is passed to all handlers):
-```
-def update_age(request, user_id, age):
-  pass
-```
 
 ### DATABASE
 
@@ -241,6 +84,197 @@ db.isolation='READ COMMITTED' env=DATABASE_ISOLATION
 db.timeout=60.0 env=DATABASE_TIMEOUT
 db.long_query=.5 env=DATABASE_LONG_QUERY
 db.fsm_trace=false env=DATABASE_FSM_TRACE
+```
+
+### LOG
+
+```
+LOG name=MICRO level=debug is_stdout=true
+```
+
+The `log` directive overrides default logging behavior for *spindrift*.
+By default, log messages are created with the *TAG* `MICRO`, with log level
+set to `DEBUG` and with messages sent to stdout.
+The value for `log.level` is case insensitive, and can be any
+valid log level, typically, *debug* or *info*.
+
+##### config
+
+```
+log.name=MICRO env=LOG_NAME
+log.level=DEBUG env=LOG_LEVEL
+log.is_stdout=true env=LOG_IS_STDOUT
+```
+
+### ENUM
+
+```
+ENUM name item1 item2 ... itemN to_upper=false to_lower=false
+```
+
+The `enum` directive defines a set of tokens (`item1` to `itemN`)
+that can be used to constrain values in an `ARG` or `CONTENT` directive.
+The `to_upper` and `to_lower` options force the value being constrained to the specified case.
+
+##### Example
+
+```
+ENUM sort_direction ASC DESC to_upper=true
+```
+
+This defines an `enum` named `sort_direction` which forces an `arg` or `content` value
+to be one of (`ASC`, `DESC`).
+
+This `enum` could be used like this:
+
+```
+CONTENT orderby enum=sort_direction
+```
+
+to constrain an `orderby` query-string parameter.
+
+### SERVER
+
+```
+SERVER name port
+```
+
+The `server` directive defines a port listening for incoming HTTP connections.
+The `name` parameter is used in log messages and in the config.
+
+##### config
+
+```
+server.[name].port=[port] env=SERVER_[name]_PORT
+server.[name].is_active=true env=SERVER_[name]_IS_ACTIVE
+server.[name].ssl.is_active=false env=SERVER_[name]_SSL_IS_ACTIVE
+server.[name].ssl.keyfile= env=SERVER_[name]_SSL_KEYFILE
+server.[name].ssl.certfile= env=SERVER_[name]_SSL_CERTFILE
+```
+
+A server is active by default, and operates without ssl. If `ssl.is_active=true`
+is specified in the config, the `ssl.keyfile` and `ssl.certfile` must also
+be specified, and must point to existing files.
+
+### ROUTE
+
+```
+ROUTE [pattern]
+```
+
+The `route` directive defines a regular expression used to match
+the *path* in incoming HTTP documents.
+
+The `pattern` can include regex groups, whose matched values are passed as arguments
+to the rest handler.
+
+
+### ARG
+
+```
+ARG type=None enum=None
+```
+
+The `arg` directive defines a type-coercion function or `enum`
+for a `route pattern`'s
+regex group.
+
+If `enum` is specified,
+the value parsed from the path must match an already defined `enum`.
+The allowed values are constrained to the tokens in the `enum`.
+
+If `type` is specified,
+the value parsed from the path is
+wrapped with the specified function before being
+added as a handler's parameter.
+The function may transform the value in any way, or raise a ValueError.
+
+Two built-in functions are available:
+
+* int - ensure value is composed of only numeric characters, return int
+* bool - transform `true` (any case) or `1` to True, and `false` (any case) or `0` to False
+
+Otherwise, `path` is a dot-delimited path to a custom function, which will
+be dynamically loaded.
+
+Each `ARG` directive is paired to the regex groups in sequence. There cannot
+be more `ARG` directives than regex groups, but there can be fewer.
+
+### GET / POST / PUT / DELETE
+
+A `route` directive is not useful without
+one or more of the following
+directives describing how to handle HTTP methods.
+
+```
+[GET|POST|PUT|DELETE] [path]
+```
+
+These directives define a code path to run when the respective HTTP method is received.
+
+These directives will be associated with the most recently encountered `route` directive.
+
+##### Example
+
+```
+ROUTE /users/(\d+)$
+  GET myservice.handlers.user.get
+  PUT myservice.handlers.user.update
+```
+
+Here, the function `get` in the module `myservice/handlers.user.py` will be called
+when an HTTP document's method matches `GET` and the path matches `/users/123` (or any number).
+
+The function `update` in the program `myservice/handlers.user.py` will be called
+when an HTTP document's method matches `PUT` and the path matches `/users/456` (or any number).
+
+### CONTENT
+```
+CONTENT name type=None enum=None is_required=True
+```
+
+The `content` directive defines a keyword argument to the rest handler
+that is extracted from the http document.
+The `type` parameter, if specified, acts in the same way as the `arg` directive.
+The `enum` parameter, if specified, acts in the same way as the `arg` directive.
+The `is_required` parameter indicates if the `content` argument is required
+to be present.
+
+The parameter is located in the http document as a key value-pair in one of:
+
+1. http_body as a json dictionary
+2. query string
+3. http_body as form data
+
+##### Example
+
+```
+ROUTE /users/(\d+)/age$
+  ARG int
+  PUT myservice.handlers.user.update_age
+    CONTENT age int
+```
+
+Here the function `update_age` in the module `myservice/handlers/user`
+will be called when an HTTP document's method matches `PUT` and the path
+matches `/users/123/age` (or any number).
+
+If the `PUT` call includes the following body:
+```
+{
+  "age": 50
+}
+```
+
+then `age=50` will be passed to the `update_age` handler.
+
+The `user_id` argument will be coerced to an `int` (123), as will `age` (50).
+
+Here is a possible signature for the `update_age` handler (including
+the `request` argument, which is passed to all handlers):
+```
+def update_age(request, user_id, age):
+  pass
 ```
 
 ### CONNECTION
@@ -399,7 +433,7 @@ is called with `(0, result)`; on failure `(1, error_message)`.
 The `args` and `kwargs` are defined by:
 1. substitution parameters in `path`
 
-    substitition parameters are curly-bracket delimited tokens (eg, `/foo/{bar}/foobar` defines `bar` as a substitution parameter).
+    substitution parameters are curly-bracket delimited tokens (eg, `/foo/{bar}/foobar` defines `bar` as a substitution parameter).
 
 2. `required` directives associated with the `resource`
 3. `optional` directives associated with the `resource`
@@ -464,7 +498,7 @@ The `optional` directive defines an optional argument for the most recent `resou
 
 The parameter value is determined by:
 
-1. an env vairable (if config value is specified): `CONNECTION_[name]_RESOURCE_[name]_[config]`,
+1. an env variable (if config value is specified): `CONNECTION_[name]_RESOURCE_[name]_[config]`,
 2. the config value, if specified,
 3. the the default value, if specified,
 3. otherwise the value is None
