@@ -194,7 +194,7 @@ Two built-in functions are available:
 * int - ensure value is composed of only numeric characters, return int
 * bool - transform `true` (any case) or `1` to True, and `false` (any case) or `0` to False
 
-Otherwise, `path` is a dot-delimited path to a custom function, which will
+Otherwise, `type` is a dot-delimited path to a custom function, which will
 be dynamically loaded.
 
 Each `ARG` directive is paired to the regex groups in sequence. There cannot
