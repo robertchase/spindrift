@@ -156,7 +156,7 @@ class FieldCache:
         self.parse_pk(fields, reserved)
 
         self.db_read = [fld for fld in fields if fld.is_database]
-        self.db_insert = [fld for fld in self.db_read if not fld.expression]
+        self.db_insert = [fld for fld in self.db_read if not fld.is_readonly]
         self.db_update = [fld for fld in self.db_insert if not fld.is_primary]
 
         return self
