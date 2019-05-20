@@ -249,8 +249,11 @@ class Query(object):
                 tables = None
                 row = [t for t in zip(columns, rs)]
                 for table in self._tables:
-                    val = row[:table.column_count]
-                    o = table.cls(**dict(val))
+                    val = dict(row[:table.column_count])
+                    if all(v is None for v in val.values()):
+                        o = None
+                    else:
+                        o = table.cls(**val)
                     if tables is None:
                         primary_table = o
                         o._tables = tables = {}
