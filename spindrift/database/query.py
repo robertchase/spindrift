@@ -9,8 +9,19 @@ from ergaleia.import_by_path import import_by_path
 class QueryTable:
 
     def __init__(self, cls, alias=None):
+
+        if alias is None:
+            camel = cls.__name__
+            snail = ''.join(
+                [
+                    c if c.islower() else '_' + c.lower()
+                    for c in camel[0].lower() + camel[1:]
+                ]
+            )
+            alias = snail
+
         self.cls = cls
-        self.alias = alias or cls.TABLENAME
+        self.alias = alias
         self.column_count = len(self.fields)
 
     @property
