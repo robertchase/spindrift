@@ -68,7 +68,7 @@ class RESTHandler(http.HTTPHandler):
             kwargs = dict(code=501, message='Internal Server Error')
             if content:
                 kwargs['content'] = str(content)
-            self._rest_send(**kwargs, close=True)
+            self._rest_send(close=True, **kwargs)
 
     def on_rest_data(self, groups):
         ''' called before rest_handler execution '''

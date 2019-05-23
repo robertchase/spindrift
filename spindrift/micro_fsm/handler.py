@@ -89,7 +89,7 @@ class InboundHandler(RESTHandler):
             self.tx_count
         )
 
-    def on_rest_data(self, request, *groups):
+    def on_rest_data(self, *groups):
         log.info(
             'request cid=%d, method=%s, resource=%s, query=%s, groups=%s',
             self.id,
