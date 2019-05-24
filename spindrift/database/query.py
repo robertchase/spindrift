@@ -238,14 +238,14 @@ class Query(object):
             stmt += ' FOR UPDATE'
         return stmt
 
-    def execute(self, callback, arg=None,
+    def execute(self, callback, args=None,
                 one=False, limit=None, offset=None, for_update=False,
                 cursor=None):
         if not cursor:
             if hasattr(callback, '_run_sync'):
                 return callback._run_sync(
-                    self.execute, arg=arg, one=one, limit=limit, offset=offset,
-                    for_update=for_update, cursor=callback,
+                    self.execute, args=args, one=one, limit=limit,
+                    offset=offset, for_update=for_update, cursor=callback,
                 )
             raise Exception('cursor not specified')
         stmt = self._build(one, limit, offset, for_update)
@@ -277,4 +277,4 @@ class Query(object):
                 rows = rows[0] if len(rows) else None
             callback(0, rows)
 
-        cursor.execute(on_execute, stmt, arg)
+        cursor.execute(on_execute, stmt, args)

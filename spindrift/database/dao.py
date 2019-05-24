@@ -285,11 +285,11 @@ class DAO():
         """
         args = tuple() if not args else args
         return cls.query.where(where).order(order).execute(
-            callback, arg=args, offset=offset, limit=limit, cursor=cursor
+            callback, args=args, offset=offset, limit=limit, cursor=cursor
         )
 
     @classmethod
-    def count(cls, callback, where=None, arg=None, cursor=None):
+    def count(cls, callback, where=None, args=None, cursor=None):
         """Count a set of objects in underlying table
 
            Parameters:
@@ -304,7 +304,7 @@ class DAO():
         if not cursor:
             if hasattr(callback, '_run_sync'):
                 return callback._run_sync(
-                    cls.count, where=where, arg=arg, cursor=callback,
+                    cls.count, where=where, args=args, cursor=callback,
                 )
             raise Exception('cursor not specified')
         query = 'SELECT COUNT(*) FROM `{}`'.format(cls.TABLENAME)
@@ -317,7 +317,7 @@ class DAO():
                 value = values[0][0]
             callback(rc, value)
 
-        cursor.execute(on_count, query, arg)
+        cursor.execute(on_count, query, args)
 
     # ---
 
