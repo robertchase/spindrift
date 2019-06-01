@@ -354,3 +354,39 @@ class DAO():
         if len(f) == 0:
             return None
         return f
+
+
+def gather(items, attribute):
+    """Gather children DAOs into a list under a shared parent.
+
+        A+1       A+[1,3,5]
+        B+C       B+[C, x]
+        A+3  -->
+        A+5
+        B+x
+
+        A shared parent (A or B in the example) is identified by
+        primary key.
+
+        1, 3, 5, C and x are joined DAOs named by 'attribute'.  These
+        are gathered into a list.
+
+       Arguments:
+
+        items - list of DAOs
+        attribute - name of joined child
+    """
+    if not items:
+        return None
+    group = {}
+    for item in items:
+        child = getattr(item, attribute)
+        pk = getattr(item, item._fields.pk)
+        if pk not in group:
+            group[pk] = item
+            joined = item.__dict__.get('_tables', {})
+            joined[attribute] = []
+        parent = group[pk]
+        if child:
+            getattr(parent, attribute).append(child)
+    return [v for v in group.values()]
