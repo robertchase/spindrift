@@ -1,4 +1,4 @@
-.PHONY: bash connect build test mysql mysql-build
+.PHONY: bash connect build flake test mysql mysql-build
 
 IMAGE := spindrift-dev
 NAME := spindrift
@@ -17,7 +17,10 @@ connect:
 	docker exec -it $(NAME) bash
 
 build:
-	docker build -t $(DOCKER_IMAGE) -f Dockerfile.dev .
+	docker build -t $(IMAGE) -f Dockerfile.dev .
+
+flake:
+	$(DOCKER) flake8 spindrift test test_db
 
 # --- test without database:
 #     ARGS=test make test

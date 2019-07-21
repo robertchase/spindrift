@@ -55,26 +55,25 @@ class DB(object):
             context=self.context,
         )
 
-
     @property
     def cursor(self):
         if not self.is_sync:
             return self.connection.cursor
 
         def run_sync(fn, *args, **kwargs):
-            async = None
+            is_async = None
 
             def cb(rc, result):
-                nonlocal async
+                nonlocal is_async
                 if rc != 0:
                     raise Exception(result)
-                async = result
+                is_async = result
 
             fn(cb, *args, **kwargs)
             cursor = kwargs.get('cursor')
             while cursor.is_running:
                 self.network.service()
-            return async
+            return is_async
 
         connection = self.connection
         for n in range(10):  # wait for connection to complete

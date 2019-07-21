@@ -539,7 +539,7 @@ def _coerce_type(type, enum, enums):
 
     if enum:
         if enum not in enums:
-            raise Excpetion("enum '%s' not defined" % enum)
+            raise Exception("enum '%s' not defined" % enum)
         type = enums[enum]
     elif type == 'int':
         type = validate_int

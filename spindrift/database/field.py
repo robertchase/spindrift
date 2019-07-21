@@ -3,8 +3,6 @@ The MIT License (MIT)
 
 https://github.com/robertchase/spindrift/blob/master/LICENSE.txt
 '''
-import collections
-
 from ergaleia.import_by_path import import_by_path
 
 
@@ -12,8 +10,7 @@ def _coerce(coerce):
     if coerce is None:
         return lambda x: x
 
-    if isinstance(coerce, collections.Sequence) and not \
-            isinstance(coerce, str):
+    if isinstance(coerce, (tuple, list)):
         def _inner(value):
             if value in coerce:
                 return value

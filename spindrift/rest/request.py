@@ -149,7 +149,7 @@ class RESTRequest(object):
 
             on_error - callable
                 called if specified and rc != 0
-                    on_error(request, result)
+                    on_error(request, (rc, message))
 
             on_none - callable
                 called if specified and rc == 0 and result is None and
@@ -204,7 +204,7 @@ class RESTRequest(object):
                     on_none_404
                 )
             else:
-                _callback_error(self, fn, result, on_error)
+                _callback_error(self, fn, rc, result, on_error)
 
         if args is None:
             args = ()
@@ -283,16 +283,16 @@ def _callback(
         request.respond(200, request.response or result)
 
 
-def _callback_error(request, fn, result, on_error):
+def _callback_error(request, fn, rc, message, on_error):
     if on_error:
         try:
             log.debug('request.callback cid=%s, on_error fn=%s',
                       request.id, on_error)
-            on_error(request, result)
-        except Exception:
-            log.exception('running on_error callback: %s', result)
+            on_error(request, (rc, message))
+        except Exception as e:
+            log.exception('running on_error callback: %s', e)
             request.respond(500)
     else:
         log.debug('request.callback cid=%s, default error', request.id)
-        log.warning('cid=%s, error: %s', request.id, result)
+        log.warning('cid=%s, error: %s', request.id, message)
         request.respond(500)

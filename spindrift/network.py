@@ -529,7 +529,7 @@ class Handler(object):
         except socket.error as e:
             errnum, errmsg = e
             if errnum == errno.ENOENT:
-                self.on_recv_error(errmsg)  # apparently this can happen. http://www.programcreek.com/python/example/374/errno.ENOENT says it comes from the SSL library.
+                self.on_recv_error(errmsg)  # apparently this can happen. http://www.programcreek.com/python/example/374/errno.ENOENT says it comes from the SSL library. # noqa: E501
             else:
                 self.close('recv error on socket: %s' % errmsg)
         except Exception as e:

@@ -7,7 +7,6 @@ from collections import namedtuple
 from itertools import zip_longest
 import re
 
-from ergaleia.config import _VALIDATE_MAP
 from ergaleia.import_by_path import import_by_path
 
 import logging
@@ -107,7 +106,7 @@ class RESTMapper(object):
 
                     For example:
 
-                        add('/foo/(\d+)/bar', get=my_func)
+                        add('/foo/(\\d+)/bar', get=my_func)
 
                     will match:
 

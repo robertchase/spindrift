@@ -35,7 +35,7 @@ def test_no_match():
 def test_group():
     m = mapper.RESTMapper()
     m.add(
-        '/foo/(\d+)/bar$',
+        '/foo/(\\d+)/bar$',
         dict(get=mapper.RESTMethod('test.test_restmapper.handler1')),
     )
     rest_match = m.match('/foo/123/bar', 'GET')

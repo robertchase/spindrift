@@ -144,7 +144,7 @@ def sequence(callback, *steps, on_complete=None, on_failure=None):
         step = steps[0]
         try:
             step(on_step, results)
-        except Exception as e:
+        except Exception:
             log.exception('failure running step: %s' % step.label)
             return fail('step exception during sequence')
 

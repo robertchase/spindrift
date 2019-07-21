@@ -1,8 +1,8 @@
 MBLENGTH = {
-        8:1,
-        33:3,
-        88:2,
-        91:2
+        8: 1,
+        33: 3,
+        88: 2,
+        91: 2
         }
 
 
@@ -42,6 +42,7 @@ class Charsets:
         for c in self._by_id.values():
             if c.name == name and c.is_default:
                 return c
+
 
 _charsets = Charsets()
 """

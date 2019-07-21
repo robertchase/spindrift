@@ -78,20 +78,20 @@ def connect_sync(*args, **kwargs):
 
        This function will block until the operation is complete.
     """
-    async = None
+    is_async = None
 
     def cb(rc, result):
-        nonlocal async
+        nonlocal is_async
         if rc != 0:
             raise Exception(result)
-        async = result
+        is_async = result
 
     network = Network()
     timer = Timer()
     c = connect(network, timer, cb, *args, **kwargs)
     run(network, timer, c)
 
-    return async
+    return is_async
 
 
 def connect_parsed(network, timer, callback, url, host, address, port, path,
