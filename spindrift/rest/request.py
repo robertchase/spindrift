@@ -104,17 +104,18 @@ class RESTRequest(object):
         else:
             self._respond(*args, **kwargs)
 
-    def _respond(
-                self, code=200, content='', headers=None, message=None,
-                content_type=None
-            ):
+    def _respond(self, code=200, content='', headers=None, message=None,
+                 content_type=None):
         if not self.is_done:
-            self.is_done = True
             close = self.handler.http_headers.get('connection') == 'close'
             self.is_delayed = True  # prevent second response on handler return
-            self.handler._rest_send(
-                code, message, content, content_type, headers, close
-            )
+            try:
+                self.handler._rest_send(code, message, content, content_type,
+                                        headers, close)
+            except Exception:
+                log.exception('error sending http response')
+                self.handler._rest_send(500)
+            self.is_done = True
             for cleanup in self._cleanup[::-1]:
                 cleanup()
 
