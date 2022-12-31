@@ -527,7 +527,7 @@ class Handler(object):
         except ssl.SSLWantWriteError:
             self._register(selectors.EVENT_WRITE, self._do_read)
         except socket.error as e:
-            errnum, errmsg = e
+            errnum, errmsg = e.args
             if errnum == errno.ENOENT:
                 self.on_recv_error(errmsg)  # apparently this can happen. http://www.programcreek.com/python/example/374/errno.ENOENT says it comes from the SSL library. # noqa: E501
             else:
@@ -555,7 +555,7 @@ class Handler(object):
         except ssl.SSLWantWriteError:
             self._register(selectors.EVENT_WRITE, self._do_write)
         except socket.error as e:
-            errnum, errmsg = e
+            errnum, errmsg = e.args
             if errnum in (errno.EINTR, errno.EWOULDBLOCK):
                 self.on_send_error(errmsg)  # not fatal
                 self._sending = data
