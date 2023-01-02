@@ -227,7 +227,7 @@ class HTTPHandler(Handler):
     def on_data(self, data):
         self._http_message.extend(data)
         self._data.extend(data)
-        while self.is_open and not self._is_quiesced and self._state():
+        while self.is_open and not self.is_quiesced and self._state():
             pass
 
     def _on_http_error(self, message):

@@ -193,7 +193,7 @@ class Network(object):
     def _handle_pending(self):
         p, self._pending = self._pending, []
         for callback in p:
-            callback()
+            callback()  # any of these might add themselves back to _pending
 
     def _service(self, timeout):
         processed = False
@@ -265,6 +265,7 @@ class Handler(object):
             host - host supplied to add_connection
             is_open - True if connection is open (not yet closed)
             is_closed - True if connection is closed
+            is_quiesced - True is connection is quiesced
             rx_count - number of bytes read (after handshake)
             tx_count - number of bytes sent (after handshake)
             t_init - time of connection init
@@ -282,11 +283,11 @@ class Handler(object):
         self._sending = b''
         self._is_registered = False
         self._mask = 0
-        self._is_quiesced = False
 
         self.id = network._next_id
         self.context = context
         self.is_outbound = is_outbound
+        self.is_quiesced = False
         self.host = host
         self.is_closed = False
         self.recv_len = 1024
@@ -357,27 +358,26 @@ class Handler(object):
 
     def quiesce(self):
         ''' stop receiving data '''
-        if not self._is_quiesced:
-            self._is_quiesced = True
+        if not self.is_quiesced:
+            self.is_quiesced = True
             if self._mask == selectors.EVENT_READ:
                 self._unregister()
 
     def unquiesce(self):
         ''' start receiving data again '''
-        if self.is_open and self._is_quiesced:
-            self._is_quiesced = False
+        if self.is_open and self.is_quiesced:
+            self.is_quiesced = False
             if self._mask == 0:
                 self._register(selectors.EVENT_READ, self._do_read)
 
     def close(self, reason=None):
-        if self.is_closed:
-            return
-        self.t_close = time.perf_counter()
-        self.is_closed = True
-        self._unregister()
-        self._sock.close()
-        self._on_close()  # for libraries
-        self.on_close(reason)
+        if not self.is_closed:
+            self.t_close = time.perf_counter()
+            self.is_closed = True
+            self._unregister()
+            self._sock.close()
+            self._on_close()  # for libraries
+            self.on_close(reason)
 
     def on_send_error(self, message):
         log.debug(message)  # unusual but not fatal
@@ -432,7 +432,7 @@ class Handler(object):
     @property
     def _is_pending(self):
         ''' True if ssl is currently buffering recv'd data - don't check if currently quiesced '''
-        return not self._is_quiesced and self._ssl_ctx is not None and self._sock.pending()
+        return not self.is_quiesced and self._ssl_ctx is not None and self._sock.pending()
 
     def _on_close(self):
         ''' http wants this for identity connections '''
@@ -441,7 +441,7 @@ class Handler(object):
     def _register(self, mask, callback=None):
 
         # special handling for quiesce: don't allow EVENT_READ to be selected
-        if self._is_quiesced and mask == selectors.EVENT_READ:
+        if self.is_quiesced and mask == selectors.EVENT_READ:
             self._unregister()
             return
 
@@ -461,7 +461,7 @@ class Handler(object):
     def _on_delayed_connect(self):
         '''
            we come here after connection is complete. we have to check for
-           errors, because "complete" doesn't always mean that is worked. if
+           errors, because "complete" doesn't always mean that it worked. if
            everything looks good, we pass control to _on_connect.
         '''
         try:
